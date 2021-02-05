@@ -303,7 +303,7 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     if len(np.shape(a)) > 3:
         a = a.flat
     # convert to 2D-array
-    if len(np.shape(a)) <= 1:
+    if len(np.shape(a)) < 2:
         a = np.reshape(a, (1, -1))
 
     # Now we have 2D ndarray
@@ -327,14 +327,14 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
 
     s += ' print ({},{}) elements'.format(rows, cols)
     # print array info
-    print('----\n', s)
+    header_str = s
 
     # print array stats
     s =  ' ({:{frm}}/{:{frm}}'.format(np.mean(a), np.mean(np.abs(a)), frm=re.sub('.*\.', '.', _data_format_string(np.mean(np.abs(a)))))
     s += ', {:{frm}}/{:{frm}}'.format(np.std(a), np.std(np.abs(a)),   frm=re.sub('.*\.', '.', _data_format_string(np.std(a))))
     s += ', [{:{frm}}/{:{frm}}]'.format(np.min(a), np.max(a),         frm=re.sub('.*\.', '.', frm))
     s += ' p{}/{}={:{frm}}/{:{frm}})'.format(p1, p99, np.percentile(a, p1), np.percentile(a, p99), frm=re.sub('.*\.', '.', frm))
-    print(s, '\n----')
+    stat_str = s
 
     rows_all = True
     cols_all = True
@@ -371,7 +371,14 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     if rows_all:
         s = s[:-frm_str_len-1]
 
-    print(s[:-1] + '\n----')
+    body_str = s[:-1]
+
+    print('----')
+    print(header_str)
+    print(stat_str)
+    print('----')
+    print(body_str)
+    print('----')
 
     pass  # print_ndarray()
 
