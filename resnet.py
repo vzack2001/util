@@ -31,7 +31,7 @@ def _bn_relu(input, name='bn_relu'):
     """ Helper to build a BN -> relu block
     """
     with tf.name_scope(name):
-        #input = keras.layers.BatchNormalization(axis=-1)(input)
+        input = keras.layers.BatchNormalization(axis=-1)(input)
         return keras.layers.Activation('relu')(input)
 
 def _conv_bn_relu(**conv_params):
