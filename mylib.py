@@ -238,7 +238,7 @@ class Profiler(object):
                                        '/ vms = {:.2f} MB'.format(self._mem[1]/2.**20),
                                        '({:.2f} MB)'.format((self._mem[1]-self._startMem[1])/2.**20), '\n')
     def __repr__(self):
-        s = '{:.3f} sec.'.format(time.time() - self._stepTime)
+        s = '{:.3f}/{:.1f} sec.'.format(time.time() - self._stepTime, time.time() - self._startTime)
         self._stepTime = time.time()
         return s
 
@@ -252,6 +252,7 @@ def _data_format_string(a):
     # ----------------------------
 
     format_string = '11.4e'  # -2.1234e+02  m +7
+    a = np.asarray(a)
 
     # - 1 for sign, -1 for decimal point
     # for p =     0, 1, 2, 3, 4 -2 -1
@@ -267,9 +268,8 @@ def _data_format_string(a):
     s = 1
 
     a_max = max(np.abs(np.max(a)), np.abs(a_min))
-    p = np.int32(np.ceil(np.log10(a_max))) if a_max > 0 else -10      # just for remember (no matter in this case)
-    #p = np.where(a_max > 0, np.int32(np.ceil(np.log10(a_max))), -10) # in LARGE arrays np.where is MUCH faster
-                                                                      # BUT it's calculate BOTH conditionals values
+    p = np.int32(np.ceil(np.log10(a_max))) if a_max > 0 else 0
+
     if p > 7 or p < -2:
         return format_string  #'11.4e'
 
