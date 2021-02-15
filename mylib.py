@@ -218,8 +218,9 @@ class data_read_numpy(object):
 
 
 class Profiler(object):
-    def __init__(self, name='Profiler'):
+    def __init__(self, name='Profiler', awaited_time=None):
         self.name = name
+        self.awaited_time = awaited_time
 
     def __enter__(self):
         print('\n>>>', self.name, '>>>')
@@ -239,6 +240,8 @@ class Profiler(object):
                                        '({:.2f} MB)'.format((self._mem[1]-self._startMem[1])/2.**20), '\n')
     def __repr__(self):
         s = '{:.3f}/{:.1f} sec.'.format(time.time() - self._stepTime, time.time() - self._startTime)
+        if self.awaited_time is not None:
+            s += ' {:.1f} %'.format((time.time() - self._startTime)/self.awaited_time * 100.)
         self._stepTime = time.time()
         return s
 
@@ -431,7 +434,7 @@ def diff(x, w=1, reversed=False, dtype=np.float32):
 # test
 if __name__ == "__main__":
 
-    with Profiler('mylib.py testing') as p:
+    with Profiler('mylib.py testing', awaited_time=0.042) as p:
 
         print('\nprint_ndarray(name, a, count=5, frm="6.2f", with_end=False)')
 
@@ -523,7 +526,7 @@ if __name__ == "__main__":
         print_ndarray('dma(y, {})'.format(w), dma(y, w))
 
     print('data_read_pandas ====================================================================')
-    filename = 'cdata_test.csv'
+    filename = 'data/cdata_test.csv'
     with Profiler('df = pd.read_csv({}, header=0, index_col=0)'.format(filename)) as p:
         df = pd.read_csv(filename, dtype='float32', parse_dates=['Date'], infer_datetime_format=True, header=0, index_col=0)
         print(df.columns)
