@@ -356,6 +356,15 @@ class ResnetBuilder(object):
             x = _residual_block(basic_block, filters=filters, num_blocks=n, is_first_layer=(i==0))(x)
             filters *= 2
 
+        with tf.name_scope('embedding'):
+            # Last activation
+            x = _bn_relu(x)
+            block_shape = K.int_shape(x)
+            x = keras.layers.AveragePooling2D(pool_size=(block_shape[1], block_shape[2]), strides=(1,1))(x)
+            x = keras.layers.Flatten()(x)
+            x = keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1), name='l2_normalize')(x) # L2 normalize embeddings
+
+        '''
         with tf.name_scope('post_pr'):
             # Last activation
             x = _bn_relu(x)
@@ -366,6 +375,7 @@ class ResnetBuilder(object):
             #x = keras.layers.Flatten()(x)
             x = keras.layers.Reshape((2,128))(x)
             x = keras.layers.Dense(units=11, activation="softmax")(x)
+        '''
 
         x = keras.layers.Activation(activation='linear', name='output')(x)
 
@@ -395,10 +405,10 @@ if __name__ == "__main__":
     print('data_shape:', data_shape)
 
     # create model
-    model = ResnetBuilder.build(data_shape, bins_csv='bins_16.csv', name=model_name)
+    model = ResnetBuilder.build(data_shape, bins_csv='data/bins_16.csv', name=model_name)
 
     # https://medium.com/analytics-vidhya/basics-of-using-tensorboard-in-tensorflow-1-2-b715b068ac5a
-    logdir = 'logs'
+    logdir = 'C:\logs'
     tf.compat.v1.summary.FileWriter(logdir, graph=tf.compat.v1.get_default_graph()).close()
 
     pass
