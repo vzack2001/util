@@ -241,7 +241,7 @@ class Profiler(object):
     def __repr__(self):
         s = '{:.3f}/{:.1f} sec.'.format(time.time() - self._stepTime, time.time() - self._startTime)
         if self.awaited_time is not None:
-            s += ' {:.1f} %'.format((time.time() - self._startTime)/self.awaited_time * 100.)
+            s += ' {:.1f}%'.format((time.time() - self._startTime)/self.awaited_time * 100.)
         self._stepTime = time.time()
         return s
 
