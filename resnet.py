@@ -225,18 +225,26 @@ def _percentile(x, q, axis=None, name='percentile'):
         gathered_x = tf.gather(sorted_x, indices, axis=axis)  # (?,len(q))
         return tf.transpose(gathered_x, [1,0])  # (len(q),?)
 
-def _handle_global_vars(bins_csv='bins_16.csv'):
-    global lv_name
-    global lv_cols
-    global lv_time
-    global db_bins
+def create_prep(inputs, depth=5, treshold=0.050, p_range=[5, 95]):
+    """ prepare data inputs
+            from shape (?,28800,10)
+            to shape (?,16,12,5)
+
+        use tensorflow.python.ops math_ops._bucketize,
+            #tensorflow_probability stats.percentile,
+            _percentile
+            _value_range,
+            _digitize,
+            _bincount,
+            _histogram
+    """
     #                0       1        2        3        4         5       6        7
     lv_name = [  'MN1',   'W1',    'D1',    'H4',    'H1',    'M15',   'M5',    'M1' ]
     lv_cols = ['LVMN1', 'LVW1',  'LVD1',  'LVH4',  'LVH1',  'LVM15', 'LVM5',  'LVM1' ]
     lv_time = [  28800,   7200,    1440,     240,      60,       15,      5,       1 ]
 
-    cols = ['percentile','MN1','W1','D1','H4','H1','M15','M5','M1','MN1_W1','W1_D1','D1_H4','H4_H1','H1_M15','M15_M5','M5_M1']
-    rows = [[1.0,-2.447450723648071,-4.3177623939514165,-6.3557000160217285,-8.466059684753418,-9.868930702209472,-11.187950134277344,-12.33390998840332,-15.201800346374512,-4.037990093231201,-6.00206995010376,-8.103440284729004,-9.51678147315979,-10.829000473022461,-11.951820373535156,-14.190199851989746],
+    _cols = ['percentile','MN1','W1','D1','H4','H1','M15','M5','M1','MN1_W1','W1_D1','D1_H4','H4_H1','H1_M15','M15_M5','M5_M1']
+    _rows = [[1.0,-2.447450723648071,-4.3177623939514165,-6.3557000160217285,-8.466059684753418,-9.868930702209472,-11.187950134277344,-12.33390998840332,-15.201800346374512,-4.037990093231201,-6.00206995010376,-8.103440284729004,-9.51678147315979,-10.829000473022461,-11.951820373535156,-14.190199851989746],
         [2.5,-2.2133100032806396,-3.9119200706481934,-5.871469974517822,-7.971982097625732,-9.357959747314453,-10.654029846191406,-11.706509590148926,-13.815509796142578,-3.5091800689697266,-5.452270030975342,-7.540170192718506,-8.959269523620605,-10.258740425109863,-11.315460205078125,-13.004579544067383],
         [5.0,-1.9093300104141235,-3.4993300437927246,-5.441074085235595,-7.532569885253906,-8.907859802246094,-10.191619873046875,-11.18002986907959,-12.89922046661377,-3.0329699516296387,-4.952859878540039,-7.037650108337402,-8.468887567520142,-9.760040283203125,-10.788009643554688,-12.169260025024414],
         [10.0,-1.5410100221633911,-3.020400047302246,-4.938948059082031,-7.022890090942383,-8.384160041809082,-9.650349617004395,-10.598739624023438,-11.982930183410645,-2.5604898929595947,-4.4264397621154785,-6.470665216445923,-7.90254020690918,-9.177720069885254,-10.207030296325684,-11.321479797363281],
@@ -252,32 +260,7 @@ def _handle_global_vars(bins_csv='bins_16.csv'):
         [97.5,1.7651900053024292,0.4791100025177002,-0.9900799989700317,-2.659019947052002,-4.001947784423827,-5.268199920654297,-6.086209774017334,-6.557980060577393,1.4778000116348267,0.16561000049114227,-1.3735699653625488,-3.034640073776245,-4.382919788360596,-5.572669982910156,-6.282489776611328],
         [99.0,2.0152900218963623,0.974839985370636,-0.4590100049972534,-2.106260061264038,-3.4134191608428948,-4.701019001007079,-5.560719966888428,-6.072020053863525,1.8153400421142578,0.6136299967765808,-0.809568512439724,-2.4642285585403405,-3.7802600860595703,-4.997039794921875,-5.770319938659668],]
 
-    db_bins = pd.DataFrame(data=rows, columns=cols, dtype=np.float32)
-    #db_bins = pd.read_csv(bins_csv, header=0, index_col=0, dtype='float32')
-    pass  # _handle_global_vars()
-
-def create_prep(inputs, depth=5, treshold=0.050, p_range=[5, 95]):
-    """ prepare data inputs
-            from shape (?,28800,10)
-            to shape (?,16,12,5)
-
-        use tensorflow.python.ops math_ops._bucketize,
-            #tensorflow_probability stats.percentile,
-            _percentile
-            _value_range,
-            _digitize,
-            _bincount,
-            _histogram
-
-        _handle_global_vars(bins_csv='data/bins_16.csv')
-            bins_csv = 'data/bins_16.csv'
-            db_bins = pd.read_csv(bins_csv, header=0, index_col=0, dtype='float32')
-            #print(db_bins)
-            #                0       1        2        3        4         5       6        7
-            lv_name = [  'MN1',   'W1',    'D1',    'H4',    'H1',    'M15',   'M5',    'M1' ]
-            lv_cols = ['LVMN1', 'LVW1',  'LVD1',  'LVH4',  'LVH1',  'LVM15', 'LVM5',  'LVM1' ]
-            lv_time = [  28800,   7200,    1440,     240,      60,       15,      5,       1 ]
-    """
+    db_bins = pd.DataFrame(data=_rows, columns=_cols, dtype=np.float32)
 
     nbins = db_bins.shape[0]  # nb_classes-1  # 15
     levels = []
@@ -352,12 +335,10 @@ def create_prep(inputs, depth=5, treshold=0.050, p_range=[5, 95]):
 class ResnetBuilder(object):
 
     @staticmethod
-    def build(input_shape, bins_csv='bins_16.csv', depth=5, name='resnet'):
+    def build(input_shape, depth=5, name='resnet'):
         """
         """
-        _handle_global_vars(bins_csv=bins_csv)
-
-        print(f'\n-- ResnetBuilder.build(input_shape={input_shape}, bins_csv={bins_csv}, depth={depth}, name={name})\n')
+        print(f'\n-- ResnetBuilder.build(input_shape={input_shape}, depth={depth}, name={name})\n')
 
         inputs = keras.layers.Input(input_shape, name='input')
         x = inputs
