@@ -390,6 +390,64 @@ class ResnetBuilder(object):
     pass  # class ResnetBuilder
 
 
+class ResnetEmbed(object):
+
+    @staticmethod
+    def build(input_shape, depth=5, name='resnet'):
+        """
+        """
+        print(f'\n-- ResnetEmbed.build(input_shape={input_shape}, depth={depth}, name={name})\n')
+
+        inputs = keras.layers.Input(input_shape, name='input')
+        x = inputs
+
+        x, value_ranges = keras.layers.Lambda(create_prep, trainable=False, arguments={'depth':depth}, name='preprocessing')(x)
+        #x = keras.layers.Activation(activation='linear', name='output')(x)
+
+        a = keras.layers.MaxPooling2D(pool_size=(2,2), strides=(1,1), padding='same')(x)  # output_shape=(input_shape-pool_size+1)/strides)
+        b = keras.layers.DepthwiseConv2D(kernel_size=1, depth_multiplier=8, padding='same')(x)
+        x = keras.layers.concatenate([a,b], axis=-1)
+
+        filters = 64
+        for i, n in enumerate([3, 3, 3]):
+            x = _residual_block(basic_block, filters=filters, num_blocks=n, is_first_layer=(i==0))(x)
+            filters *= 2
+
+        with tf.name_scope('embedding'):
+            # Last activation
+            x = _bn_relu(x)
+            block_shape = K.int_shape(x)
+            #x = keras.layers.AveragePooling2D(pool_size=(block_shape[1], block_shape[2]), strides=(1,1))(x)
+            x = keras.layers.Flatten()(x)
+            x = keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1), name='l2_normalize')(x) # L2 normalize embeddings
+
+        '''
+        with tf.name_scope('post_pr'):
+            # Last activation
+            x = _bn_relu(x)
+
+            # Classifier block
+            block_shape = K.int_shape(x)
+            x = keras.layers.AveragePooling2D(pool_size=(block_shape[1], block_shape[2]), strides=(1,1))(x)
+            #x = keras.layers.Flatten()(x)
+            x = keras.layers.Reshape((2,128))(x)
+            x = keras.layers.Dense(units=11, activation="softmax")(x)
+        '''
+
+        x = keras.layers.Activation(activation='linear', name='output')(x)
+
+        model = keras.Model(inputs, x, name=name)
+
+        model.summary()
+        print('model.inputs :', model.inputs)
+        print('model.outputs:', model.outputs)
+        print()
+
+        return model
+
+    pass  # class ResnetBuilder
+
+
 if __name__ == "__main__":
 
     tf.compat.v1.disable_eager_execution()
@@ -399,12 +457,14 @@ if __name__ == "__main__":
 
     # define model name and path
     model_name = 'resnet'
+    model_name = 'resnet_emb'
 
     data_shape = (28800,12)  # np.shape(x)[1:]
     print('data_shape:', data_shape)
 
     # create model
-    model = ResnetBuilder.build(data_shape, name=model_name)
+    #model = ResnetBuilder.build(data_shape, name=model_name)
+    model = ResnetEmbed.build(data_shape, name=model_name)
 
     json_config = model.to_json()
     #print(json_config)
