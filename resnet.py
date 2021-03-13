@@ -419,7 +419,7 @@ class ResnetEmbed(object):
             block_shape = K.int_shape(x)
             #x = keras.layers.AveragePooling2D(pool_size=(block_shape[1], block_shape[2]), strides=(1,1))(x)
             x = keras.layers.Flatten()(x)
-            x = keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1), name='l2_normalize')(x) # L2 normalize embeddings
+            #x = keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1), name='l2_normalize')(x) # L2 normalize embeddings
 
         '''
         with tf.name_scope('post_pr'):
