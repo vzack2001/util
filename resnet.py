@@ -17,13 +17,16 @@ import functools
 
 # make layer helper functions
 _conv2D = functools.partial(
-    keras.layers.Conv2D,
-    #keras.layers.SeparableConv2D,
+    #keras.layers.Conv2D,
+    keras.layers.SeparableConv2D,
+    depthwise_regularizer=keras.regularizers.l2(1.e-4),
+    pointwise_regularizer=keras.regularizers.l2(1.e-4),
     #strides=(1,1),
     #kernel_initializer='ones',
     #kernel_initializer=glorot_uniform(seed=0),
-    bias_initializer='zeros',
-    kernel_regularizer=keras.regularizers.l2(1.e-4),
+    #bias_initializer='zeros',
+    #kernel_regularizer=keras.regularizers.l2(1.e-4),
+    #bias_regularizer=keras.regularizers.l2(1.e-4),
     padding='same')
 
 # https://github.com/raghakot/keras-resnet/blob/master/resnet.py
@@ -32,7 +35,8 @@ def _bn_relu(input, name='bn_relu'):
     """
     with tf.name_scope(name):
         input = keras.layers.BatchNormalization(axis=-1)(input)
-        return keras.layers.Activation('relu', alpha=0.0)(input)
+        return tf.keras.layers.ReLU(negative_slope=0.1, threshold=0)(input)
+        #return keras.layers.Activation('relu')(input)
 
 def _conv_bn_relu(**conv_params):
     """ Helper to build a conv -> BN -> relu block
@@ -404,12 +408,20 @@ class ResnetEmbed(object):
         x, value_ranges = keras.layers.Lambda(create_prep, trainable=False, arguments={'depth':depth}, name='preprocessing')(x)
         #x = keras.layers.Activation(activation='linear', name='output')(x)
 
-        a = keras.layers.MaxPooling2D(pool_size=(2,2), strides=(1,1), padding='same')(x)  # output_shape=(input_shape-pool_size+1)/strides)
-        b = keras.layers.DepthwiseConv2D(kernel_size=1, depth_multiplier=8, padding='same')(x)
-        x = keras.layers.concatenate([a,b], axis=-1)
+        #a = keras.layers.MaxPooling2D(pool_size=(2,2), strides=(1,1), padding='same')(x)  # output_shape=(input_shape-pool_size+1)/strides)
+        #b = keras.layers.DepthwiseConv2D(kernel_size=1, depth_multiplier=8, padding='same')(x)
+        #x = keras.layers.concatenate([a,b], axis=-1)
+        x = keras.layers.DepthwiseConv2D(kernel_size=1,
+                depth_multiplier=8,
+                padding='same',
+                depthwise_regularizer=keras.regularizers.l2(1.e-4),
+                bias_regularizer=keras.regularizers.l2(1.e-4),
+                )(x)
+        x = _bn_relu(x)
 
         filters = 64
-        for i, n in enumerate([3, 3, 3]):
+        #for i, n in enumerate([3, 3, 3]):
+        for i, n in enumerate([2, 2, 2, 2, 2]):
             x = _residual_block(basic_block, filters=filters, num_blocks=n, is_first_layer=(i==0))(x)
             filters *= 2
 
