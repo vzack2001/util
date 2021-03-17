@@ -173,17 +173,18 @@ class data_read_numpy(object):
 
         pass  # _gen_batch()
 
-    def gen_batch_idx(self, data_seq=None, target_seq=None, target_shift=None, batch_size=1, shuffle=False):
+    def gen_batch_idx(self, data_seq=None, target_seq=None, target_shift=None, batch_size=1, shuffle=False, verbose=False):
         """ generate x, y batches
             align on batch_size
         """
-        print('gen_batch_idx(')
+        #print('gen_batch_idx(')
 
         data_seq, target_seq, target_shift = self.get_overrided(data_seq, target_seq, target_shift)
         idx = self.get_safe_idx(idx=None, data_seq=data_seq, target_seq=target_seq, target_shift=target_shift)
 
-        print('len(idx)={}, data_seq={}, target_seq={}, target_shift={}, batch_size={}, shuffle={}'.format(
-                      len(idx), data_seq, target_seq, target_shift, batch_size, shuffle))
+        if verbose:
+            print('gen_batch(len(idx)={}/{}, data_seq={}, target_seq={}, target_shift={}, batch_size={}, shuffle={})'.format(
+                   len(idx), len(idx) // batch_size, data_seq, target_seq, target_shift, batch_size, shuffle))
 
         # align idx on batch_size
         start_from = len(idx) - (len(idx) // batch_size) * batch_size
@@ -194,16 +195,17 @@ class data_read_numpy(object):
         #print('gen_batch() the end')
         pass  # gen_batch_idx()
 
-    def gen_batch(self, data_seq=None, target_seq=None, target_shift=None, batch_size=1, shuffle=False):
+    def gen_batch(self, data_seq=None, target_seq=None, target_shift=None, batch_size=1, shuffle=False, verbose=False):
         """ generate x, y batches
             align on batch_size
         """
-        print('gen_batch(')
+        #print('gen_batch(')
         data_seq, target_seq, target_shift = self.get_overrided(data_seq, target_seq, target_shift)
         idx = self.get_safe_idx(idx=None, data_seq=data_seq, target_seq=target_seq, target_shift=target_shift)
 
-        print('len(idx)={}, data_seq={}, target_seq={}, target_shift={}, batch_size={}, shuffle={}'.format(
-                      len(idx), data_seq, target_seq, target_shift, batch_size, shuffle))
+        if verbose:
+            print('gen_batch(len(idx)={}/{}, data_seq={}, target_seq={}, target_shift={}, batch_size={}, shuffle={})'.format(
+                   len(idx), len(idx) // batch_size, data_seq, target_seq, target_shift, batch_size, shuffle))
 
         # align idx on batch_size
         start_from = len(idx) - (len(idx) // batch_size) * batch_size
