@@ -12,6 +12,7 @@ from tensorflow import keras
 from tensorflow.keras import backend as K
 from tensorflow.python.ops import math_ops
 
+import tensorflow_addons as tfa
 #import tensorflow_probability as tfp
 import functools
 
@@ -21,6 +22,7 @@ _conv2D = functools.partial(
     keras.layers.SeparableConv2D,
     depthwise_regularizer=keras.regularizers.l2(1.e-4),
     pointwise_regularizer=keras.regularizers.l2(1.e-4),
+    activity_regularizer=None,
     #strides=(1,1),
     #kernel_initializer='ones',
     #kernel_initializer=glorot_uniform(seed=0),
@@ -30,12 +32,13 @@ _conv2D = functools.partial(
     padding='same')
 
 # https://github.com/raghakot/keras-resnet/blob/master/resnet.py
-def _bn_relu(input, name='bn_relu'):
+def _bn_relu(input, groups=32, negative_slope=0.1, name='bn_relu'):
     """ Helper to build a BN -> relu block
     """
     with tf.name_scope(name):
-        input = keras.layers.BatchNormalization(axis=-1)(input)
-        return tf.keras.layers.ReLU(negative_slope=0.1, threshold=0)(input)
+        #input = keras.layers.BatchNormalization(axis=-1)(input)
+        input = tfa.layers.GroupNormalization(groups=groups, axis=-1)(input)
+        return tf.keras.layers.ReLU(negative_slope=negative_slope, threshold=0)(input)
         #return keras.layers.Activation('relu')(input)
 
 def _conv_bn_relu(**conv_params):
@@ -417,11 +420,11 @@ class ResnetEmbed(object):
                 depthwise_regularizer=keras.regularizers.l2(1.e-4),
                 bias_regularizer=keras.regularizers.l2(1.e-4),
                 )(x)
-        x = _bn_relu(x)
+        x = _bn_relu(x, groups=5, negative_slope=0.1)
 
         filters = 64
         #for i, n in enumerate([3, 3, 3]):
-        for i, n in enumerate([2, 2, 2, 2, 2]):
+        for i, n in enumerate([2, 2, 2, 2]):
             x = _residual_block(basic_block, filters=filters, num_blocks=n, is_first_layer=(i==0))(x)
             filters *= 2
 
