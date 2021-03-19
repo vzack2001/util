@@ -220,9 +220,11 @@ class data_read_numpy(object):
 
 
 class Profiler(object):
-    def __init__(self, name='Profiler', awaited_time=None):
+    def __init__(self, name='Profiler', expected_time=None, awaited_time=None):
+        expected_time = expected_time or awaited_time
+        del awaited_time
         self.name = name
-        self.awaited_time = awaited_time
+        self.expected_time = expected_time
 
     def __enter__(self):
         print('\n>>>', self.name, '>>>')
@@ -242,8 +244,8 @@ class Profiler(object):
                                        '({:.2f} MB)'.format((self._mem[1]-self._startMem[1])/2.**20), '\n')
     def __repr__(self):
         s = '{:.3f}/{:.1f} sec.'.format(time.time() - self._stepTime, time.time() - self._startTime)
-        if self.awaited_time is not None:
-            s += ' {:.1f}%'.format((time.time() - self._startTime)/self.awaited_time * 100.)
+        if self.expected_time is not None:
+            s += ' {:.1f}%'.format((time.time() - self._startTime)/self.expected_time * 100.)
         self._stepTime = time.time()
         return s
 
@@ -436,7 +438,7 @@ def diff(x, w=1, reversed=False, dtype=np.float32):
 # test
 if __name__ == "__main__":
 
-    with Profiler('mylib.py testing', awaited_time=0.042) as p:
+    with Profiler('mylib.py testing', expected_time=0.042) as p:
 
         print('\nprint_ndarray(name, a, count=5, frm="6.2f", with_end=False)')
 
