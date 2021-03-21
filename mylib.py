@@ -13,8 +13,21 @@ import sys
 import time
 import psutil
 
+import functools
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
+
+# make pd.read_csv helper function
+_read_csv = functools.partial(
+    pd.read_csv,
+    parse_dates=['Date'],
+    infer_datetime_format=True,
+    header=0,
+    index_col=0,
+    dtype='float32')
 
 
 class data_read_numpy(object):
@@ -37,7 +50,7 @@ class data_read_numpy(object):
         self.rec_idx = None
         self.idx_reset()  #self.rec_idx = np.arange(self.rec_count)
 
-        pass
+        pass  # __init__()
 
     def __str__(self):
         s = type(self).__name__
@@ -217,6 +230,56 @@ class data_read_numpy(object):
         pass  # gen_batch()
 
     pass  # data_read_numpy
+
+
+class data_read_pandas(data_read_numpy):
+
+    def __init__(self, data_file=None, target_file=None, data_path=None, data_list=None, targets_list=None, **kwargs,):
+
+        #assert datafile is None and targetfile is None, 'targets should have same length as data. Got data[{}] targets[{}]'.format(len(data), len(targets))
+        if data_file is None and target_file is None:
+            raise ValueError(
+                """data_file is None and target_file is None"""
+            )
+
+        data_path = data_path or '.'
+        data_path = Path(data_path)
+        #print(data_path.absolute())
+
+        data_file = data_path.joinpath(data_file)
+
+        with Profiler('pd.read_csv({})'.format(data_file)) as p:
+            self.data_df = _read_csv(data_file)
+            self.data_df['Idx'] = self.data_df.index
+            #print(self.data_df.head())
+            #print(self.data_df.info())
+            print('data_df.shape={}'.format(self.data_df.shape))
+            print('data_df.columns=\n{}'.format(self.data_df.columns))
+
+        if target_file is None:
+            self.target_df = self.data_df
+        else:
+            target_file = data_path.joinpath(target_file)
+            with Profiler('pd.read_csv({})'.format(target_file)) as p:
+                self.target_df = _read_csv(target_file)
+                self.target_df['Idx'] = self.target_df.index
+                print('target_df.shape={}'.format(self.target_df.shape))
+                print('target_df.columns=\n{}'.format(self.target_df.columns))
+
+        data_list = data_list or ['Idx']
+        print('data_list', data_list)
+
+        targets_list = targets_list or ['Idx']
+        print('targets_list', targets_list)
+
+        data = self.data_df[data_list].values
+        targets = self.target_df[targets_list].values
+
+        super().__init__(data, targets=targets, **kwargs)
+
+        pass  # __init__()
+
+    pass  # data_read_pandas
 
 
 class Profiler(object):
