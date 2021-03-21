@@ -380,12 +380,15 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
 
     body_str = s[:-1]
 
-    print('----')
-    print(header_str)
-    print(stat_str)
-    print('----')
-    print(body_str)
-    print('----')
+    if len(name) > 0:
+        print('----')
+        print(header_str)
+        print(stat_str)
+        print('----')
+    if count > 0:
+        print(body_str)
+    if len(name) > 0 and count > 0:
+        print('----')
 
     pass  # print_ndarray()
 
