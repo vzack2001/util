@@ -448,6 +448,8 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
         print(header_str)
         print(stat_str)
         print('----')
+    if isinstance(count, tuple):
+        count = count[0]
     if count > 0:
         print(body_str)
     if len(name) > 0 and count > 0:
