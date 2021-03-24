@@ -46,7 +46,8 @@ class data_read_numpy(object):
 
         self.set_params(data_seq, target_seq, target_shift)
 
-        self.rec_count  = np.shape(self.data)[0]
+        self.shape = np.shape(self.data)
+        self.rec_count  = self.shape[0]
         self.rec_idx = None
         self.idx_reset()  #self.rec_idx = np.arange(self.rec_count)
 
@@ -250,7 +251,7 @@ class data_read_pandas(data_read_numpy):
 
         with Profiler('pd.read_csv({})'.format(data_file)) as p:
             self.data_df = _read_csv(data_file)
-            self.data_df['Idx'] = self.data_df.index
+            self.data_df['Idx'] = np.arange(self.data_df.shape[0], dtype=np.int32)  # self.data_df.index
             #print(self.data_df.head())
             #print(self.data_df.info())
             print('data_df.shape={}'.format(self.data_df.shape))
@@ -262,7 +263,7 @@ class data_read_pandas(data_read_numpy):
             target_file = data_path.joinpath(target_file)
             with Profiler('pd.read_csv({})'.format(target_file)) as p:
                 self.target_df = _read_csv(target_file)
-                self.target_df['Idx'] = self.target_df.index
+                self.target_df['Idx'] = np.arange(self.target_df.shape[0], dtype=np.int32)  # self.target_df.index
                 print('target_df.shape={}'.format(self.target_df.shape))
                 print('target_df.columns=\n{}'.format(self.target_df.columns))
 
