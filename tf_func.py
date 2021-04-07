@@ -93,7 +93,7 @@ if __name__ == "__main__":
     percentile = percentile.numpy()
     print_ndarray('_percentile(a, {}, axis=-1)'.format(q), percentile)
 
-    percentile = [10,90]
+    percentile = [25,75]
     treshold = 0.0
     values = a
     print_ndarray('values = np.random.normal(size={}) * sigma + mu'.format(values.shape), values)
