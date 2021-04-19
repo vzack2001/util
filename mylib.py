@@ -235,7 +235,7 @@ class data_read_numpy(object):
 
 class data_read_pandas(data_read_numpy):
 
-    def __init__(self, data_file=None, target_file=None, data_path=None, data_list=None, targets_list=None, **kwargs,):
+    def __init__(self, data_file=None, target_file=None, data_path=None, data_list=None, targets_list=None, read_fn=None, **kwargs,):
 
         #assert datafile is None and targetfile is None, 'targets should have same length as data. Got data[{}] targets[{}]'.format(len(data), len(targets))
         if data_file is None and target_file is None:
@@ -249,8 +249,12 @@ class data_read_pandas(data_read_numpy):
 
         data_file = data_path.joinpath(data_file)
 
+        #self.read_fn = _read_csv if read_fn is None else read_fn
+        if read_fn is None:
+            read_fn = _read_csv
+
         with Profiler('pd.read_csv({})'.format(data_file)) as p:
-            self.data_df = _read_csv(data_file)
+            self.data_df = read_fn(data_file)
             self.data_df['Idx'] = np.arange(self.data_df.shape[0], dtype=np.int32)  # self.data_df.index
             #print(self.data_df.head())
             #print(self.data_df.info())
