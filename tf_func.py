@@ -1,6 +1,7 @@
 """slice & stats helper functions"""
 
 import tensorflow as tf
+from tensorflow.python.ops.array_ops import repeat
 
 def _value_range(values, percentile=[10,90], treshold=0, name='value_range'):
     """ input
@@ -65,6 +66,53 @@ def _percentile(x, q, axis=None, name='percentile'):
         gathered_x = tf.gather(sorted_x, indices, axis=axis)  # (?,len(q))
         return tf.transpose(gathered_x, [1,0])  # (len(q),?)
 
+def _kl(mu0=0, logvar0=1, mu1=2, logvar1=3):
+    """ Kullback–Leibler divergence
+        for mean, logvar
+
+    mu0, sigma0 = norm1
+    mu1, sigma1 = norm2
+
+    logvar0 = np.log(np.square(sigma0))
+    logvar1 = np.log(np.square(sigma1))
+
+    kld = (np.square(sigma0 / sigma1) + np.square((mu1-mu0)/sigma1) + 2 * np.log(sigma1 / sigma0) - 1) / 2.
+
+    # scale
+    # sigma = np.sqrt(np.exp(logvar))
+
+    np.square(sigma0/sigma1) = np.square(sigma0)/np.square(sigma1) = np.exp(logvar0)/np.exp(logvar1) = np.exp(logvar0-logvar1)
+    np.square((mu1-mu0)/sigma1) = np.square(mu1-mu0)/np.square(sigma1) = np.square(mu1-mu0)/np.exp(logvar1)
+    2 * np.log(sigma1 / sigma0) = np.log(np.square(sigma1 / sigma0)) = np.log(np.exp(logvar1-logvar0)) = logvar1-logvar0
+
+    kld = (np.exp(logvar0-logvar1) + np.square(mu1-mu0)/np.exp(logvar1) + (logvar1 - logvar0) - 1) / 2.
+    """
+    #return (np.exp(logvar0-logvar1) + np.square(mu1-mu0)/np.exp(logvar1) + (logvar1-logvar0) - 1)/2.
+
+    return (tf.raw_ops.Exp(x=tf.cast(logvar0-logvar1, dtype=tf.float32)) +
+            tf.raw_ops.Square(x=tf.cast(mu1-mu0, dtype=tf.float32))/tf.raw_ops.Exp(x=tf.cast(logvar1, dtype=tf.float32)) +
+            (logvar1-logvar0) - 1)/2.
+
+def _kld(p=0, q=1):
+    """ Kullback–Leibler divergence
+        https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+    """
+    epsilon = 1e-19
+    mask = tf.math.less_equal(q, epsilon)
+    q = q + tf.cast(mask, dtype=tf.float32) * epsilon
+    mask = tf.math.less_equal(p, epsilon)
+    p = p + tf.cast(mask, dtype=tf.float32) * epsilon
+    return tf.reduce_sum(p * tf.math.log(p / q), axis=-1)
+
+def _pdf(values, value_range, nbins, name='pdf'):
+    """ probability density function
+    """
+    with tf.name_scope(name):
+        targets = _digitize(values, value_range, nbins)
+        pdf = _bincount(targets, minlength=nbins+1, axis=1)  # (?,16)
+        #pdf = tf.maximum(pdf, 1.0)
+        pdf = pdf / tf.expand_dims(tf.reduce_sum(pdf, axis=-1), axis=-1)
+        return pdf #tf.reduce_sum(pdf, axis=-1)
 
 if __name__ == "__main__":
 
@@ -78,10 +126,12 @@ if __name__ == "__main__":
     # define test random array
     mu = np.array([0, 2, 5, -5], dtype=np.float32).reshape(-1,1)
     sigma = np.array([1, 2, 3, 3], dtype=np.float32).reshape(-1,1)
+    logvar = np.log(np.square(sigma))
     print_ndarray('mu', mu)
     print_ndarray('sigma', sigma)
 
     a_shape = (4,10000)
+    n = a_shape[0]
     a = np.random.normal(size=a_shape) * sigma + mu
     print_ndarray('a = np.random.normal(size={}) * sigma + mu'.format(a.shape), a)
 
@@ -97,7 +147,7 @@ if __name__ == "__main__":
     treshold = 0.0
     values = a
     print_ndarray('values = np.random.normal(size={}) * sigma + mu'.format(values.shape), values)
-    value_range = _value_range(a, percentile=percentile, treshold=treshold)
+    value_range = _value_range(values, percentile=percentile, treshold=treshold)
     value_range = value_range.numpy()
     print_ndarray('value_range = _value_range(values, percentile={}, treshold={})'.format(percentile, treshold), value_range, count=0)
     print_ndarray('', value_range[...,0])
@@ -105,5 +155,49 @@ if __name__ == "__main__":
     nbins = 10
     h = _histogram(values, value_range, nbins=nbins)
     print_ndarray('h = _histogram(values, value_range, nbins={})'.format(nbins), h.numpy()[...,0])
+
+    # test pdf & kl
+    print_ndarray('kl(0,1,2,3) = ', _kl().numpy())
+
+    min = tf.reduce_min(value_range)
+    max = tf.reduce_max(value_range)
+    min, max = (-5, 5)
+    value_range = tf.expand_dims(
+            tf.stack(
+                [tf.repeat(min, repeats=n),
+                tf.repeat(max, repeats=n)],
+                axis=0),
+            axis=-1
+        )
+    print_ndarray('value_range', value_range[...,0])
+
+    pdf = _pdf(a, value_range, nbins=nbins)
+    print_ndarray('pdf = _pdf(values, value_range, nbins={})'.format(nbins), pdf.numpy())
+
+    p = pdf[0] #tf.stack([pdf[0], pdf[0], pdf[0], pdf[0]], axis=0)
+    q = pdf
+    print_ndarray('p = pdf[0]', p)
+    print_ndarray('q = pdf', q)
+
+    p = np.asarray(p, dtype=np.float32)
+    q = np.asarray(q, dtype=np.float32)
+
+    kl = _kld(p, q)
+    print_ndarray('kl = _kld(p, q)', kl.numpy())
+
+
+    _mu = np.mean(a, axis=-1)
+    _sigma = np.std(a, axis=-1)
+    _logvar = np.log(np.var(a, axis=-1))
+
+    print_ndarray('mu ({})'.format(np.reshape(mu, (-1,))), _mu)
+    print_ndarray('sigma ({})'.format(np.reshape(sigma, (-1,))), _sigma)
+    print_ndarray('logvar ({})'.format(np.reshape(logvar, (-1,))), _logvar)
+
+    kl = _kl(_mu[0], _logvar[0], _mu, _logvar)
+    print_ndarray('kl = _kl()', kl.numpy())
+
+    kl = _kl(mu[0], logvar[0], mu, logvar)
+    print_ndarray('kl = _kl()', kl.numpy())
 
     pass # main
