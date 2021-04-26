@@ -3,6 +3,8 @@
 import tensorflow as tf
 from tensorflow.python.ops.array_ops import repeat
 
+epsilon = 1e-16
+
 def _value_range(values, percentile=[10,90], treshold=0, name='value_range'):
     """ input
             values (?,seq)
@@ -22,6 +24,8 @@ def _value_range(values, percentile=[10,90], treshold=0, name='value_range'):
 def _digitize(values, value_range, nbins, name='digitize'):
     """ tf analog numpy digitize()
     """
+    values = tf.cast(values, dtype=tf.float32)
+    value_range = tf.cast(value_range, dtype=tf.float32)
     with tf.name_scope(name):
         scaled_values = tf.truediv(
             values - value_range[0],
@@ -66,7 +70,7 @@ def _percentile(x, q, axis=None, name='percentile'):
         gathered_x = tf.gather(sorted_x, indices, axis=axis)  # (?,len(q))
         return tf.transpose(gathered_x, [1,0])  # (len(q),?)
 
-def _kl(mu0=0, logvar0=1, mu1=2, logvar1=3):
+def _kl(mu0=0., logvar0=1., mu1=2., logvar1=3.):
     """ Kullback–Leibler divergence
         for mean, logvar
 
@@ -88,7 +92,10 @@ def _kl(mu0=0, logvar0=1, mu1=2, logvar1=3):
     kld = (np.exp(logvar0-logvar1) + np.square(mu1-mu0)/np.exp(logvar1) + (logvar1 - logvar0) - 1) / 2.
     """
     #return (np.exp(logvar0-logvar1) + np.square(mu1-mu0)/np.exp(logvar1) + (logvar1-logvar0) - 1)/2.
-
+    mask = tf.math.less_equal(logvar0, epsilon)
+    logvar0 = logvar0 + tf.cast(mask, dtype=tf.float32) * epsilon
+    mask = tf.math.less_equal(logvar1, epsilon)
+    logvar1 = logvar1 + tf.cast(mask, dtype=tf.float32) * epsilon
     return (tf.raw_ops.Exp(x=tf.cast(logvar0-logvar1, dtype=tf.float32)) +
             tf.raw_ops.Square(x=tf.cast(mu1-mu0, dtype=tf.float32))/tf.raw_ops.Exp(x=tf.cast(logvar1, dtype=tf.float32)) +
             (logvar1-logvar0) - 1)/2.
@@ -97,7 +104,6 @@ def _kld(p=0, q=1):
     """ Kullback–Leibler divergence
         https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
     """
-    epsilon = 1e-19
     mask = tf.math.less_equal(q, epsilon)
     q = q + tf.cast(mask, dtype=tf.float32) * epsilon
     mask = tf.math.less_equal(p, epsilon)
@@ -161,7 +167,7 @@ if __name__ == "__main__":
 
     min = tf.reduce_min(value_range)
     max = tf.reduce_max(value_range)
-    min, max = (-5, 5)
+    min, max = (-5., 5.)
     value_range = tf.expand_dims(
             tf.stack(
                 [tf.repeat(min, repeats=n),
