@@ -46,10 +46,7 @@ class data_read_numpy(object):
 
         self.set_params(data_seq, target_seq, target_shift)
 
-        self.shape = np.shape(self.data)
-        self.rec_count  = self.shape[0]
-        self.rec_idx = None
-        self.idx_reset()  #self.rec_idx = np.arange(self.rec_count)
+        self.rec_count  = np.shape(self.data)[0]
 
         pass  # __init__()
 
@@ -67,16 +64,14 @@ class data_read_numpy(object):
     def idx_reset(self):
         """ reset index order
         """
-        self.rec_idx = np.arange(self.rec_count, dtype=np.int32)
-        #print('idx_reset ({}) rec.'.format(len(self.rec_idx)))
-        return self.rec_idx
+        return np.arange(self.rec_count, dtype=np.int32)
 
     def idx_shuffle(self, idx=None):
         """ shuffles idx (array in-place)
         """
-        if idx is not None:
-            np.random.shuffle(idx)  # shuffles in-place data indices
-        #print('idx_shuffle ({}) rec.'.format(len(idx)))
+        if idx is None:
+            idx = self.idx_reset()
+        np.random.shuffle(idx)  # shuffles in-place data indices
         return idx
 
     def get_overrided(self, data_seq=None, target_seq=None, target_shift=None):
