@@ -266,14 +266,17 @@ class data_read_pandas(data_read_numpy):
                 print('target_df.shape={}'.format(self.target_df.shape))
                 print('target_df.columns=\n{}'.format(self.target_df.columns))
 
-        data_list = data_list or ['Idx']
-        print('data_list', data_list)
+        self.data_list = data_list or ['Idx']
+        print('data_list', self.data_list)
 
-        targets_list = targets_list or ['Idx']
-        print('targets_list', targets_list)
+        self.targets_list = targets_list or ['Idx']
+        print('targets_list', self.targets_list)
 
-        data = self.data_df[data_list].values
-        targets = self.target_df[targets_list].values
+        self.data_dict =  {k:v for v,k in enumerate(self.data_list)}
+        self.targets_dict =  {k:v for v,k in enumerate(self.targets_list)}
+
+        data = self.data_df[self.data_list].values
+        targets = self.target_df[self.targets_list].values
 
         super().__init__(data, targets=targets, **kwargs)
 
