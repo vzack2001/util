@@ -461,6 +461,55 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     pass  # print_ndarray()
 
 
+def what_is(name, x, methods=True, iterables=False):
+    print('--------')
+    print(name, type(x))
+    print('methods={}, iterables={}'.format(methods, iterables))
+    print('--------')
+    print(x)
+
+    if isinstance(x, list):
+        print('\n'.join(['%s' % type(item) for item in x]))
+        print('--------')
+
+    items = dir(x)
+    names = []  # [str(item) for item in items]
+    descr = []
+    iters = []
+
+    if methods is not False:
+        print('--------')
+        #print('\n'.join(['%s' % item for item in dir(x)]))
+        #print('try find iterable -------------')
+        for item in items:
+            s = str(item)
+            names.append(s)
+            try:
+                item_eval = eval('x.' + s) #!!! warning !!! use 'eval' function !!!
+            except Exception as e:
+                s += "<Exception '" + str(e) + "'>"
+                #print('Exception', e)
+                descr.append(str(e))
+            else:
+                #if s.find('__') < 0:
+                #descr.append(str(type(item_eval)))
+                s += ' ' + str(type(item_eval))
+                if isinstance(item_eval, (bool, float, int, str)):
+                    s += ' ' + str(item_eval)
+                if isinstance(item_eval, list):
+                    iters.append(str(item) + ' ' + str(item_eval))
+            descr.append(s)
+            #print(s)
+    if iterables is not False:
+        print('--------')
+        print('\n'.join(['%s' % it for it in iters]))
+    print('--------')
+    #print('\n'.join(['%s' % name for name in names if name.find('__', 0) == -1]))
+    print('\n'.join(['%s' % name for name in descr]))
+    print('--------')
+    pass  # what_is()
+
+
 def ma(x, w=1, divide=True, dtype=np.float32):
     """ calculate moving average using numpy
     """
