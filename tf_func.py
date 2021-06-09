@@ -1,7 +1,6 @@
 """slice & stats helper functions"""
 
 import tensorflow as tf
-from tensorflow.python.ops.array_ops import repeat
 
 epsilon = 1e-16
 
@@ -24,9 +23,9 @@ def _value_range(values, percentile=[10,90], treshold=0, name='value_range'):
 def _digitize(values, value_range, nbins, name='digitize'):
     """ tf analog numpy digitize()
     """
-    values = tf.cast(values, dtype=tf.float32)
-    value_range = tf.cast(value_range, dtype=tf.float32)
     with tf.name_scope(name):
+        values = tf.cast(values, dtype=tf.float32)
+        value_range = tf.cast(value_range, dtype=tf.float32)
         scaled_values = tf.truediv(
             values - value_range[0],
             value_range[1] - value_range[0])
