@@ -713,16 +713,16 @@ if __name__ == "__main__":
     print_ndarray('_, y = dr.get_dataset()', y)
     print('=================================================================================')
 
-    a = np.asarray(range(12345), dtype=np.float32)
+    a = np.asarray(range(867996), dtype=np.float32)
     print_ndarray('a = np.asarray(range(12346), dtype=np.float32)', a)
 
     dr = data_read_numpy(a, targets=a)
     print(dr)
 
-    idx = dr.get_safe_idx()
+    idx = dr.get_safe_idx(data_seq=60, target_seq=1, target_shift=1)
     print_ndarray('idx = dr.get_safe_idx()', idx)
 
-    idx = dr.safe_idx_split(num_steps=128, num_parts=6)
+    idx = dr.safe_idx_split(num_steps=128, num_parts=8, data_seq=60, target_seq=0, target_shift=2)
     print_ndarray('idx = dr.safe_idx_split()', idx)
 
     pass  # test section
