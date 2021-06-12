@@ -145,6 +145,48 @@ class data_read_numpy(object):
 
         return idx
 
+    def safe_idx_split(self, num_steps=128, num_parts=8, **kwargs):
+
+        safe_idx = self.get_safe_idx(**kwargs)
+
+        if num_parts == 1:
+            return np.reshape(safe_idx[len(safe_idx) - len(safe_idx) // num_steps * num_steps:], (1,-1))
+
+        k = num_steps * num_parts            # 128 * 8 = 1024
+        m = len(safe_idx)/k                  # 867937 / 1024 = 847.5947265625
+
+        part_iters = np.int(np.ceil(m))      # 848
+        part_steps = part_iters * num_steps  # 108544
+
+        a = np.ceil((part_steps - m * num_steps) / num_parts) # overlapped samples per part (7)
+
+        out = []
+        to_ = 0
+        for i in range(num_parts):
+            from_ = np.int(i * (m * num_steps - a))
+
+            from_to = to_ - from_  # overlapped samples  # debug only
+
+            to_ = from_ + part_steps
+            idx = safe_idx[from_ : to_]
+
+            if len(idx) < part_steps:
+                from_to = from_ + from_to  # debug only
+
+                to_ = len(safe_idx)
+                from_ = to_ - part_steps
+
+                from_to = from_to - from_  # debug only
+
+                idx = safe_idx[from_ : to_]
+
+            out.append(idx)
+            #print(i, (from_, to_), from_to, (idx[0], idx[-1]), len(idx), len(idx)-part_steps)
+
+        out = np.asarray(out, np.int32)
+
+        return out
+
     def get_dataset(self, idx=None, data_seq=None, target_seq=None, target_shift=None):
         """ return whole data-targets sequences
         """
@@ -670,5 +712,17 @@ if __name__ == "__main__":
     print_ndarray('x, _ = dr.get_dataset()', x)
     print_ndarray('_, y = dr.get_dataset()', y)
     print('=================================================================================')
+
+    a = np.asarray(range(12345), dtype=np.float32)
+    print_ndarray('a = np.asarray(range(12346), dtype=np.float32)', a)
+
+    dr = data_read_numpy(a, targets=a)
+    print(dr)
+
+    idx = dr.get_safe_idx()
+    print_ndarray('idx = dr.get_safe_idx()', idx)
+
+    idx = dr.safe_idx_split(num_steps=128, num_parts=6)
+    print_ndarray('idx = dr.safe_idx_split()', idx)
 
     pass  # test section
