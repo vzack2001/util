@@ -183,7 +183,7 @@ class data_read_numpy(object):
             out.append(idx)
             #print(i, (from_, to_), from_to, (idx[0], idx[-1]), len(idx), len(idx)-part_steps)
 
-        out = np.asarray(out, np.int32)
+        out = np.asarray(out, np.int32)  # (8, 108544)
 
         return out
 
@@ -360,6 +360,14 @@ class Profiler(object):
     pass  # class Profiler(object)
 
 
+def _is_empty(a):
+    if a is None:
+        return True
+    if np.prod(np.shape(a)) == 0:
+        return True
+    return False
+
+
 def _data_format_string(a):
     # set data format string
     # '{}.{}f'.format(max_len, fract_part)
@@ -404,100 +412,121 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     #print('name: {}\ntype(a): {}\nnp.shape(a): {}\ncount: {}\nfrm: {}\nwith_end: {}'.format(name, type(a), np.shape(a), count, frm, with_end))
     #print('np.shape(a): {}\n'.format(np.shape(a)))
 
-    s = '{} {}'.format(name, type(a))
+    type_a = type(a)
+    shape_a = np.shape(a)
+    a_is_empty = _is_empty(a)
+
     a = np.asarray(a)
-    s += ' {}'.format(np.shape(a))
-    #s += ' {} bytes'.format(sys.getsizeof(a))
+
+    if len(a.flat) == 0:
+        type_a_flat = type(None)
+    else:
+        type_a_flat = type(a.flat[0])
+
+    def get_header_str(a):
+        s = '{} {}'.format(name, type_a)
+        s += ' {}'.format(shape_a)
+        #s += ' {} bytes'.format(sys.getsizeof(a))
+        if len(a.flat) > 0:
+            s += ' {}'.format(type_a_flat)
+        s += ' {}'.format(a_is_empty)
+        return s
+
+    if a_is_empty:
+        frm = ''
 
     if frm is None:
         frm = _data_format_string(a)
 
-    # ??? convert to 2D-array or # raise ValueError('Array shape size must be 2 or less. Try some array slice..')
-    if len(np.shape(a)) == 3:
-        a = a[0,:,:]
-    if len(np.shape(a)) > 3:
-        a = a.flat
-    # convert to 2D-array
-    if len(np.shape(a)) < 2:
-        a = np.reshape(a, (1, -1))
+    header_str = get_header_str(a)
 
-    # Now we have 2D ndarray
-    #s += ' final shape:{}'.format(np.shape(a))
+    def get_stat_str(a):
+        # print array stats
+        s =  ' ({:{frm}}/{:{frm}}'.format(np.mean(a), np.mean(np.abs(a)), frm=re.sub('.*\.', '.', _data_format_string(np.mean(np.abs(a)))))
+        s += ', {:{frm}}/{:{frm}}'.format(np.std(a), np.std(np.abs(a)),   frm=re.sub('.*\.', '.', _data_format_string(np.std(a))))
+        s += ', [{:{frm}}/{:{frm}}]'.format(np.min(a), np.max(a),         frm=re.sub('.*\.', '.', frm))
+        s += ' p{}/{}={:{frm}}/{:{frm}})'.format(p1, p99, np.percentile(a, p1), np.percentile(a, p99), frm=re.sub('.*\.', '.', frm))
+        return s
 
-    # ??? format string for delimiter
-    frm_str = '{:{frm}}'.format(a[0][0], frm=frm)
-    frm_str_len = len(frm_str)
-    frm_str = '>{}s'.format(frm_str_len)
+    def get_body_str(a):
 
-    s += ' {}'.format(type(a[0][0]))
+        # ??? convert to 2D-array or # raise ValueError('Array shape size must be 2 or less. Try some array slice..')
+        if len(np.shape(a)) == 3:
+            a = a[0,:,:]
+        if len(np.shape(a)) > 3:
+            a = a.flat
+        # convert to 2D-array
+        if len(np.shape(a)) < 2:
+            a = np.reshape(a, (1, -1))
+        # Now we have 2D ndarray
 
-    rows = 0
-    cols = 0
-    if isinstance(count, int):               # count=5
-        rows = min(count, np.shape(a)[0])
-        cols = min(count, np.shape(a)[1])
-    if isinstance(count, tuple):             # count=(5,10)
-        rows = min(count[0], np.shape(a)[0])
-        cols = min(count[1], np.shape(a)[1])
+        # format string for delimiter
+        frm_str = '{:{frm}}'.format(a.flat[0], frm=frm)
+        frm_str_len = len(frm_str)
+        delimiter_frm = '>{}s'.format(frm_str_len)
 
-    s += ' print ({},{}) elements'.format(rows, cols)
-    # print array info
-    header_str = s
+        rows = 0
+        cols = 0
+        if isinstance(count, int):               # count=5
+            rows = min(count, np.shape(a)[0])
+            cols = min(count, np.shape(a)[1])
+        if isinstance(count, tuple):             # count=(5,10)
+            rows = min(count[0], np.shape(a)[0])
+            cols = min(count[1], np.shape(a)[1])
 
-    # print array stats
-    s =  ' ({:{frm}}/{:{frm}}'.format(np.mean(a), np.mean(np.abs(a)), frm=re.sub('.*\.', '.', _data_format_string(np.mean(np.abs(a)))))
-    s += ', {:{frm}}/{:{frm}}'.format(np.std(a), np.std(np.abs(a)),   frm=re.sub('.*\.', '.', _data_format_string(np.std(a))))
-    s += ', [{:{frm}}/{:{frm}}]'.format(np.min(a), np.max(a),         frm=re.sub('.*\.', '.', frm))
-    s += ' p{}/{}={:{frm}}/{:{frm}})'.format(p1, p99, np.percentile(a, p1), np.percentile(a, p99), frm=re.sub('.*\.', '.', frm))
-    stat_str = s
+        if rows * cols == 0:
+            return ''
 
-    rows_all = True
-    cols_all = True
-    if rows < np.shape(a)[0]:
-        rows_all = False
-    if cols < np.shape(a)[1]:
-        cols_all = False
-
-    rows_list = [[i for i in range(0, rows)]]
-    cols_list = [slice(0,cols)]
-
-    if with_end:
         rows_all = True
-        if rows < np.shape(a)[0]:
-            rows = max(rows // 2, 1)
-            rows_list = [[i for i in range(0, rows)], [i for i in range(-rows,0)]]
         cols_all = True
+        if rows < np.shape(a)[0]:
+            rows_all = False
         if cols < np.shape(a)[1]:
-            cols = max(cols // 2, 1)
-            cols_list = [slice(0,cols), slice(-cols, None)]
+            cols_all = False
 
-    s = ''
-    for rows in rows_list:
-        for row in rows:
-            for col_slice in cols_list:
-                s += ' '.join(['{:{frm}}'.format(x, frm=frm) for x in a[row, col_slice]])
-                s += '{:{frm}}'.format('...', frm=frm_str)
-                #s += ' ... '
-            if cols_all:
-                s = s[:-frm_str_len]
-            s += '\n'
+        rows_list = [[i for i in range(0, rows)]]
+        cols_list = [slice(0,cols)]
 
-        s += '{:{frm}}\n'.format('...', frm=frm_str)
-    if rows_all:
-        s = s[:-frm_str_len-1]
+        if with_end:
+            rows_all = True
+            if rows < np.shape(a)[0]:
+                rows = max(rows // 2, 1)
+                rows_list = [[i for i in range(0, rows)], [i for i in range(-rows,0)]]
+            cols_all = True
+            if cols < np.shape(a)[1]:
+                cols = max(cols // 2, 1)
+                cols_list = [slice(0,cols), slice(-cols, None)]
 
-    body_str = s[:-1]
+        s = ''
+        for rows in rows_list:
+            for row in rows:
+                for col_slice in cols_list:
+                    s += ' '.join(['{:{frm}}'.format(x, frm=frm) for x in a[row, col_slice]])
+                    s += '{:{frm}}'.format('...', frm=delimiter_frm)
+                    #s += ' ... '
+                if cols_all:
+                    s = s[:-frm_str_len]
+                s += '\n'
+
+            s += '{:{frm}}\n'.format('...', frm=delimiter_frm)
+        if rows_all:
+            s = s[:-frm_str_len-1]
+        return s[:-1]
 
     if len(name) > 0:
         print('----')
-        print(header_str)
-        print(stat_str)
+        print(header_str)  #, ' print ({},{}) elements'.format(rows, cols)
+        if not a_is_empty:
+            stat_str = get_stat_str(a)
+            print(stat_str)
         print('----')
-    if isinstance(count, tuple):
-        count = count[0]
-    if count > 0:
+
+    body_str = ''
+    if not a_is_empty:
+        body_str = get_body_str(a)
         print(body_str)
-    if len(name) > 0 and count > 0:
+
+    if len(name) > 0 and len(body_str) > 0:
         print('----')
 
     pass  # print_ndarray()
@@ -724,5 +753,25 @@ if __name__ == "__main__":
 
     idx = dr.safe_idx_split(num_steps=128, num_parts=8, data_seq=60, target_seq=0, target_shift=2)
     print_ndarray('idx = dr.safe_idx_split()', idx)
+
+    import traceback
+    a = []
+    print('\na = []')
+    try:
+        print_ndarray('10: a = []', a, count=(5,10), with_end=True)
+    except Exception as e:
+        #print(e)
+        traceback.print_exc()
+
+    a = None
+    print('\na = None')
+    try:
+        print_ndarray('11: a = None', a, count=(5,10), with_end=True)
+    except Exception as e:
+        traceback.print_exc()
+
+    a = np.random.normal(0, 1, size=(100, 100))
+    print('\na = np.random.normal(0, 1, size=(100, 100))')
+    print_ndarray('9: (a, count=(5, 10), with_end=True)', a, count=0, with_end=True)
 
     pass  # test section
