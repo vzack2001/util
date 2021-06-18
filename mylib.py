@@ -412,7 +412,7 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     #print('name: {}\ntype(a): {}\nnp.shape(a): {}\ncount: {}\nfrm: {}\nwith_end: {}'.format(name, type(a), np.shape(a), count, frm, with_end))
     #print('np.shape(a): {}\n'.format(np.shape(a)))
 
-    type_a = type(a)
+    type_a = object.__repr__(a)  #type(a)
     shape_a = np.shape(a)
     a_is_empty = _is_empty(a)
 
@@ -429,7 +429,7 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
         #s += ' {} bytes'.format(sys.getsizeof(a))
         if len(a.flat) > 0:
             s += ' {}'.format(type_a_flat)
-        s += ' {}'.format(a_is_empty)
+        #s += ' {}'.format(a_is_empty)
         return s
 
     if a_is_empty:
