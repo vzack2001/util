@@ -9,7 +9,6 @@
 
 import os
 import re
-import sys
 import time
 import psutil
 
@@ -628,6 +627,13 @@ def diff(x, w=1, reversed=False, dtype=np.float32):
 
 # test
 if __name__ == "__main__":
+
+    import sys
+    print('\npython helper functions')
+    print('\npython version: {0}'.format(sys.version))
+    print('numpy version: {0}'.format(np.__version__))
+
+    np.random.seed(seed=111)
 
     with Profiler('mylib.py testing', expected_time=0.042) as p:
 
