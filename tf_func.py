@@ -48,9 +48,27 @@ def _histogram(values, value_range, nbins, name='histogram'):
     with tf.name_scope(name):
         targets = _digitize(values, value_range, nbins)
         hist = _bincount(targets, minlength=nbins+1, axis=1)  # (?,16)
+        max_value = targets.shape[1]
+        hist = hist / max_value
         #hist = tf.math.bincount(targets, minlength=nbins+1, axis=1)  # for use `axis` upgrade needed
-        hist = hist / tf.expand_dims(tf.reduce_max(hist, axis=-1), axis=-1)
+        #hist = hist / tf.expand_dims(tf.reduce_max(hist, axis=-1), axis=-1)
         return tf.expand_dims(hist, axis=-1)
+
+def _histogram2d(values, value_range, nbins, name='histogram2d'):
+    """ histogram2d
+    """
+    with tf.name_scope(name):
+        targets = _digitize(values, value_range, nbins)            # (batch, samples)
+        shape = targets.shape
+
+        targets = tf.reshape(targets, [shape[0] * (nbins+1), -1])  # (batch*(nbins+1), samples/(nbins+1))
+        max_value = targets.shape[1]  # shape[1] / (nbins+1)
+
+        hist = _bincount(targets, minlength=nbins+1, axis=1)       # (batch*(nbins+1), (nbins+1))
+        hist = tf.reshape(hist, (shape[0], nbins+1, -1))           # (batch, (nbins+1), (nbins+1))
+        hist = hist / max_value
+
+        return hist
 
 def _percentile(x, q, axis=None, name='percentile'):
     """ from tensorflow_probability stats.percentile
@@ -117,7 +135,7 @@ def _pdf(values, value_range, nbins, name='pdf'):
         pdf = _bincount(targets, minlength=nbins+1, axis=1)  # (?,16)
         #pdf = tf.maximum(pdf, 1.0)
         pdf = pdf / tf.expand_dims(tf.reduce_sum(pdf, axis=-1), axis=-1)
-        return pdf #tf.reduce_sum(pdf, axis=-1)
+        return pdf  # tf.reduce_sum(pdf, axis=-1)
 
 if __name__ == "__main__":
 
@@ -129,16 +147,21 @@ if __name__ == "__main__":
     print('tf.executing_eagerly(): {0}'.format(tf.executing_eagerly()))
 
     # define test random array
+    np.random.seed(seed=111)
     mu = np.array([0, 2, 5, -5], dtype=np.float32).reshape(-1,1)
+    mu = np.array([0, 0, 0, 0], dtype=np.float32).reshape(-1,1)
     sigma = np.array([1, 2, 3, 3], dtype=np.float32).reshape(-1,1)
     logvar = np.log(np.square(sigma))
     print_ndarray('mu', mu)
     print_ndarray('sigma', sigma)
 
-    a_shape = (4,10000)
+    a_shape = (4,11000)
     n = a_shape[0]
     a = np.random.normal(size=a_shape) * sigma + mu
     print_ndarray('a = np.random.normal(size={}) * sigma + mu'.format(a.shape), a)
+
+    a = np.cumsum(a, axis=1)
+    print_ndarray('a = np.cumsum(a, np.float32)'.format(a.shape), a, frm='8.2f')
 
     q = [25, 50, 75]
     percentile = np.percentile(a, q, axis=-1)
@@ -158,6 +181,10 @@ if __name__ == "__main__":
     print_ndarray('', value_range[...,0])
 
     nbins = 10
+    h = _histogram2d(values, value_range, nbins=nbins)
+    print_ndarray('h = _histogram2d(values, value_range, nbins={})'.format(nbins), h.numpy())
+    print_ndarray('h = np.mean(h, axis=1)', np.mean(h.numpy(), axis=1))
+
     h = _histogram(values, value_range, nbins=nbins)
     print_ndarray('h = _histogram(values, value_range, nbins={})'.format(nbins), h.numpy()[...,0])
 
