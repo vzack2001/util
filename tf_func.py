@@ -62,13 +62,13 @@ def _histogram2d(values, value_range, nbins, name='histogram2d'):
         shape = targets.shape
 
         targets = tf.reshape(targets, [shape[0] * (nbins+1), -1])  # (batch*(nbins+1), samples/(nbins+1))
-        max_value = targets.shape[1]  # shape[1] / (nbins+1)
+        max_value = targets.shape[1]  # shape[1] // (nbins+1)
 
         hist = _bincount(targets, minlength=nbins+1, axis=1)       # (batch*(nbins+1), (nbins+1))
         hist = tf.reshape(hist, (shape[0], nbins+1, -1))           # (batch, (nbins+1), (nbins+1))
         hist = hist / max_value
 
-        return hist
+        return tf.expand_dims(hist, axis=-1)
 
 def _percentile(x, q, axis=None, name='percentile'):
     """ from tensorflow_probability stats.percentile
@@ -181,8 +181,8 @@ if __name__ == "__main__":
     print_ndarray('', value_range[...,0])
 
     nbins = 10
-    h = _histogram2d(values, value_range, nbins=nbins)
-    print_ndarray('h = _histogram2d(values, value_range, nbins={})'.format(nbins), h.numpy())
+    h = _histogram2d(values, value_range, nbins=nbins)[...,0]
+    print_ndarray('h = _histogram2d(values, value_range, nbins={})[...,0]'.format(nbins), h.numpy())
     print_ndarray('h = np.mean(h, axis=1)', np.mean(h.numpy(), axis=1))
 
     h = _histogram(values, value_range, nbins=nbins)
