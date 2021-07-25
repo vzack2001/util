@@ -1,6 +1,7 @@
 """slice & stats helper functions"""
 
 import tensorflow as tf
+from tensorflow.python.ops import math_ops
 
 epsilon = 1e-16
 
@@ -25,12 +26,15 @@ def _digitize(values, value_range, nbins, name='digitize'):
     """
     with tf.name_scope(name):
         values = tf.cast(values, dtype=tf.float32)
-        value_range = tf.cast(value_range, dtype=tf.float32)
-        scaled_values = tf.truediv(
-            values - value_range[0],
-            value_range[1] - value_range[0])
-        indices = tf.floor(scaled_values * (nbins-1))
-        indices = tf.clip_by_value(indices, -1, nbins-1) + 1
+        if isinstance(value_range, (list, tuple)):
+            indices = math_ops._bucketize(values, boundaries=value_range)
+        else:
+            value_range = tf.cast(value_range, dtype=tf.float32)
+            scaled_values = tf.truediv(
+                values - value_range[0],
+                value_range[1] - value_range[0])
+            indices = tf.floor(scaled_values * (nbins-1))
+            indices = tf.clip_by_value(indices, -1, nbins-1) + 1
         return tf.cast(indices, tf.int32)
 
 def _bincount(targets, minlength=None, axis=None, name='bincount'):
