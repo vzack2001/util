@@ -422,14 +422,29 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     else:
         type_a_flat = type(a.flat[0])
 
-    def get_header_str(a):
-        s = '{} {}'.format(name, type_a)
-        s += ' {}'.format(shape_a)
-        #s += ' {} bytes'.format(sys.getsizeof(a))
-        if len(a.flat) > 0:
-            s += ' {}'.format(type_a_flat)
-        #s += ' {}'.format(a_is_empty)
-        return s
+    def get_header_str(name, a):
+        h = ''
+        f = ''
+        if len(name) > 0:
+
+            if name[0] == '\n':
+                name = name[1:]
+                h += '\n'
+
+            f += '----'
+            if name[-1] == '\n':
+                name = name[:-1]
+                f += '\n'
+
+            h += '----\n'
+            h += '{} {}'.format(name, type_a)
+            h += ' {}'.format(shape_a)
+            #h += ' {} bytes'.format(sys.getsizeof(a))
+
+            if len(a.flat) > 0:
+                h += ' {}'.format(type_a_flat)
+
+        return h, f
 
     if a_is_empty:
         frm = ''
@@ -437,7 +452,7 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     if frm is None:
         frm = _data_format_string(a)
 
-    header_str = get_header_str(a)
+    header_str, footer_str = get_header_str(name, a)
 
     def get_stat_str(a):
         # print array stats
@@ -512,9 +527,8 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
             s = s[:-frm_str_len-1]
         return s[:-1]
 
-    if len(name) > 0:
-        print('----')
-        print(header_str)  #, ' print ({},{}) elements'.format(rows, cols)
+    if len(header_str) > 0:
+        print(header_str)
         if not a_is_empty:
             stat_str = get_stat_str(a)
             print(stat_str)
@@ -525,8 +539,8 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
         body_str = get_body_str(a)
         print(body_str)
 
-    if len(name) > 0 and len(body_str) > 0:
-        print('----')
+    if len(footer_str) > 0 and len(body_str) > 0:
+        print(footer_str)
 
     pass  # print_ndarray()
 
