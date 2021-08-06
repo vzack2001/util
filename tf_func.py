@@ -52,7 +52,8 @@ def _histogram(values, value_range, nbins, name='histogram'):
     with tf.name_scope(name):
         targets = _digitize(values, value_range, nbins)
         hist = _bincount(targets, minlength=nbins+1, axis=1)  # (?,16)
-        max_value = targets.shape[1]
+        max_value = tf.shape(targets)[1]
+        max_value = tf.cast(max_value, dtype=tf.float32)
         hist = hist / max_value
         #hist = tf.math.bincount(targets, minlength=nbins+1, axis=1)  # for use `axis` upgrade needed
         #hist = hist / tf.expand_dims(tf.reduce_max(hist, axis=-1), axis=-1)
@@ -63,10 +64,11 @@ def _histogram2d(values, value_range, nbins, name='histogram2d'):
     """
     with tf.name_scope(name):
         targets = _digitize(values, value_range, nbins)            # (batch, samples)
-        shape = targets.shape
+        shape = tf.shape(targets)
 
         targets = tf.reshape(targets, [shape[0] * (nbins+1), -1])  # (batch*(nbins+1), samples/(nbins+1))
-        max_value = targets.shape[1]  # shape[1] // (nbins+1)
+        max_value = tf.shape(targets)[1]
+        max_value = tf.cast(max_value, dtype=tf.float32)
 
         hist = _bincount(targets, minlength=nbins+1, axis=1)       # (batch*(nbins+1), (nbins+1))
         hist = tf.reshape(hist, (shape[0], nbins+1, -1))           # (batch, (nbins+1), (nbins+1))
