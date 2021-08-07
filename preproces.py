@@ -6,33 +6,20 @@
 
 import numpy as np
 import pandas as pd
+import functools
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.ops import math_ops
+#from tensorflow.python.ops import math_ops
 
 import tf_func #as helper
+from mylib import data_read_pandas
 
-def create_prep(inputs, depth=5, treshold=0.050, p_range=[5, 95]):
-    """ prepare data inputs
-            from shape (?,28800,10)
-            to shape (?,16,12,5)
 
-        use tensorflow.python.ops math_ops._bucketize,
-            #tensorflow_probability stats.percentile,
-            tf_func
-                #_bincount,
-                #_percentile
-                _value_range,
-                _digitize,
-                _histogram
-    """
-    #                0       1        2        3        4         5       6        7
-    lv_name = [  'MN1',   'W1',    'D1',    'H4',    'H1',    'M15',   'M5',    'M1' ]
-    lv_cols = ['LVMN1', 'LVW1',  'LVD1',  'LVH4',  'LVH1',  'LVM15', 'LVM5',  'LVM1' ]
-    lv_time = [  28800,   7200,    1440,     240,      60,       15,      5,       1 ]
+def get_db_bins():
 
     _cols = ['percentile','MN1','W1','D1','H4','H1','M15','M5','M1','MN1_W1','W1_D1','D1_H4','H4_H1','H1_M15','M15_M5','M5_M1']
+
     _rows = [[1.0,-2.447450723648071,-4.3177623939514165,-6.3557000160217285,-8.466059684753418,-9.868930702209472,-11.187950134277344,-12.33390998840332,-15.201800346374512,-4.037990093231201,-6.00206995010376,-8.103440284729004,-9.51678147315979,-10.829000473022461,-11.951820373535156,-14.190199851989746],
         [2.5,-2.2133100032806396,-3.9119200706481934,-5.871469974517822,-7.971982097625732,-9.357959747314453,-10.654029846191406,-11.706509590148926,-13.815509796142578,-3.5091800689697266,-5.452270030975342,-7.540170192718506,-8.959269523620605,-10.258740425109863,-11.315460205078125,-13.004579544067383],
         [5.0,-1.9093300104141235,-3.4993300437927246,-5.441074085235595,-7.532569885253906,-8.907859802246094,-10.191619873046875,-11.18002986907959,-12.89922046661377,-3.0329699516296387,-4.952859878540039,-7.037650108337402,-8.468887567520142,-9.760040283203125,-10.788009643554688,-12.169260025024414],
@@ -51,99 +38,25 @@ def create_prep(inputs, depth=5, treshold=0.050, p_range=[5, 95]):
 
     db_bins = pd.DataFrame(data=_rows, columns=_cols, dtype=np.float32)
 
-    nbins = db_bins.shape[0]  # nb_classes-1  # 15
-    levels = []
-    ranges = []
+    return db_bins
 
-    for i in range(depth):
-        time = [lv_time[i], lv_time[i+1]]
-        name = [lv_name[i], lv_name[i]+'_'+lv_name[i+1]]
-
-        with tf.name_scope(name[0]):
-            data = inputs[:,-time[0]:,:]  #['LVMN1', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM1', 'Idx', 'Close']
-            #idx_test = tf.stack([data[:,0,-2], data[:,-1,-2]], axis=1)
-
-            bins = db_bins[name[0]].values.tolist()
-            #print_ndarray('bins = db_bins[{}].values'.format(name[0]), bins,  count=16, frm='%8.3f')  # (15,) (nbin,)
-            lv_slow = tf.stack([
-                data[:,0,i],
-                data[:,-1,i],
-                ], axis=1)                      # (?,2)
-            #tft.apply_buckets
-            #https://www.tensorflow.org/tfx/transform/api_docs/python/tft/apply_buckets
-            #lv_slow = math_ops._bucketize(lv_slow, boundaries=bins, name='bucketize_slow')
-
-            bins = db_bins[name[1]].values.tolist()
-            #print_ndarray('bins = db_bins[{}].values'.format(name[1]), bins,  count=16, frm='%8.3f')  # (15,) (nbin,)
-            lv_fast = tf.stack([
-                data[:,-time[1],i],
-                data[:,-1,i],
-                data[:,-time[1],i+1],
-                data[:,-1,i+1],
-                ], axis=1)                        # (?,4)
-            #lv_fast = math_ops._bucketize(lv_fast, boundaries=bins, name='bucketize_fast')
-
-            price_values = data[:,:,-1]
-            value_range = tf_func._value_range(price_values, percentile=p_range, treshold=treshold)  # (2,?,1)  (min|max,?,1)
-            #x = tf.transpose(value_range, [1,2,0])  # just as output test case
-
-            with tf.name_scope('stack_range'):
-                last_value = price_values[:,-1]   # (?,)  last
-                price_range = tf.stack([
-                    #last_value - treshold,
-                    #last_value,
-                    #last_value + treshold,
-
-                    #tf_func._percentile(price_values, [50], axis=-1, name='median_slow')[0,:],
-                    tf.reduce_mean(price_values, axis=-1, name='mean_slow'),
-
-                    tf.reduce_min(price_values, axis=-1, name='min_slow'),
-                    tf.reduce_max(price_values, axis=-1, name='max_slow'),
-
-                    #tf.reduce_mean(price_values[:,-time[1]*2:-time[1]], axis=-1, name='mean_fast1'),
-                    #tf.reduce_mean(price_values[:,-time[1]:], axis=-1, name='mean_fast0'),
-
-                    #tf.reduce_min(price_values[:,-time[1]:], axis=-1, name='min_fast'),
-                    #tf.reduce_max(price_values[:,-time[1]:], axis=-1, name='max_fast'),
-
-                    last_value - treshold,
-                    last_value,
-                    last_value + treshold,
-                    ], axis=1)                    # (?,7)
-            price_range = tf_func._digitize(price_range, value_range, nbins, name='digitize_range')
-
-            x = tf.concat([
-                lv_slow,                          # (?,2)  slow (slow (first, last))
-                lv_fast,                          # (?,4)  fast (slow (first, last) fast (first, last))
-                #price_range,                      # (?,7)
-                ], axis=-1)                       # (?,13)
-            """x = price_range  # tf.expand_dims(price_range, axis=-1)
-
-            x = tf.concat([
-                tf_func._histogram(price_values, value_range, nbins, name='histogram_slow'),
-                #tf_func._histogram(price_values[:,-time[1]*2:-time[1]], value_range, nbins, name='histogram_fast1'),
-                #tf_func._histogram(price_values[:,-time[1]:], value_range, nbins, name='histogram_fast0'),
-                tf.one_hot(x, nbins+1, axis=1),   # (?,16,13)
-                ], axis=-1)                       # (?,16,3+13)"""
-
-            levels.append(x)
-            ranges.append(value_range)
-
-    x = tf.stack(levels, axis=-1)                  #(?,16,12,5)  # (?,nclasses,channels,depth)
-
-    return x #, tf.transpose(tf.concat(ranges, axis=-1), [1,0,2])  #(?,2,5)      # (?,2,depth) min|max
 
 class Preproces(object):
 
     @staticmethod
-    def build(input_shape, depth=5, name='preproces'):
+    def build(input_shape, name='preproces', **kwarg):
         """
+            kwarg = {nbins=15, treshold=0.050, p_range=[5, 95],}:
+            nbins = kwarg.setdefault('nbins', 15)
+            treshold = kwarg.setdefault('treshold', 0.050)
+            p_range = kwarg.setdefault('p_range', [5, 95])
         """
-        print(f'\n-- ResnetEmbed.build(input_shape={input_shape}, depth={depth}, name={name})\n')
+        print(f'\n-- ResnetEmbed.build(input_shape={input_shape}, name={name}, {kwarg})\n')
 
         inputs = keras.layers.Input(input_shape, name='input')
         x = inputs
-        x = keras.layers.Lambda(create_prep, trainable=False, arguments={'depth':depth}, name='preprocessing')(x)
+
+        x = keras.layers.Lambda(prep, trainable=False, arguments=kwarg, name='preproces')(x)
 
         x = keras.layers.Activation(activation='linear', name='output')(x)
 
@@ -158,10 +71,132 @@ class Preproces(object):
 
     pass  # Preproces
 
-if __name__ == "__main__":
-    from mylib import *
 
-    tf.compat.v1.disable_eager_execution()
+def prep(inputs: np.ndarray,
+        nbins=15,
+        p_range=[5,95],
+        treshold=0.050,
+    ):
+    """ kwarg = {nbins=15, treshold=0.050, p_range=[5, 95]}
+
+        prepare data inputs
+            from shape (?,256,17)
+            to shape (?,16,16,36)
+
+        use tf_func
+                _value_range,
+                _digitize,
+                _histogram2d
+    """
+    print('\nprep():', nbins, p_range, treshold,)
+
+    # inputs
+    #  0       1       2      3        4      5      6       7      8      9       10      11      12       13      14      15      16
+    #['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
+
+    _time = [256, 64, 16, 16]
+    _name = ['H4', 'H1', 'M15', 'M5', 'M2', 'D1',]
+
+    mean_cols = [4, 5, 6, 7, 8]
+    logvar_cols = { 'D1': 9,  'H4': 10,  'H1': 11,  'M15': 12, 'M5': 13,  'M2': 14,  'M1': 15 }
+
+    output = []
+
+    db_bins = get_db_bins()
+
+    for i, t in enumerate(_time):
+        lv_fast = _name[i]
+        lv_slow = _name[i-1]
+        name = lv_fast
+
+        with tf.name_scope(name):
+            data = inputs[:,-t:,:]
+
+            # mean section
+            ohlc_values = data[...,0:4]         # ['Open', 'High', 'Low', 'Close',]
+            price_values = ohlc_values[...,-1]  # 'Close'
+            mean_values = tf.reduce_mean(ohlc_values, axis=-1)
+            mean_slow = data[...,mean_cols[i]]
+            mean_fast = data[...,mean_cols[i+1]]
+
+            value_range = tf_func._value_range(mean_values, percentile=p_range, treshold=treshold)  # (2,?,1)  (min|max,?,1)
+
+            last_value = price_values[:,-1]     # (?,)
+            price_range = tf.stack([
+                last_value - treshold,
+                last_value,
+                last_value + treshold,
+                ], axis=1)                      # (?,3)
+
+            price_range = tf_func._digitize(price_range, value_range, nbins)       # (?,3)
+            price_range = tf.one_hot(price_range, nbins+1, axis=1)                 # (?,16,3)
+            price_range = tf.expand_dims(price_range, axis=1)                      # (?,1,16,3)
+            price_range = tf.repeat(price_range, nbins+1, axis=1)                  # (?,16,16,3)
+
+            price_values = tf_func._histogram2d(price_values, value_range, nbins)  # (?,16,16,1)
+            mean_values = tf_func._histogram2d(mean_values, value_range, nbins)
+            mean_slow = tf_func._histogram2d(mean_slow, value_range, nbins)
+            mean_fast = tf_func._histogram2d(mean_fast, value_range, nbins)
+
+            # logvar section
+            bins = db_bins[lv_fast].to_list()
+
+            logvar_slow = data[..., logvar_cols[lv_slow]]
+            logvar_fast = data[..., logvar_cols[lv_fast]]
+
+            logvar_slow = tf_func._histogram2d(logvar_slow, bins, nbins)
+            logvar_fast = tf_func._histogram2d(logvar_fast, bins, nbins)
+
+            img = tf.concat([
+                price_values,
+                mean_values,
+                mean_slow,
+                mean_fast,
+                price_range,
+                logvar_slow,
+                logvar_fast,
+                ], axis=-1)                     # (?,16,16,4+3+2)
+
+            output.append(img)
+
+    output = tf.concat(output, axis=-1)
+
+    return output
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    from mylib import print_ndarray
+
+    def draw_img(image,
+            n_cols=9,
+            n_rows=4,
+        ):
+        # create a grid of plots
+        # https://colorscheme.ru/html-colors.html
+        fig, axs = plt.subplots(n_rows,n_cols,figsize=(n_cols,n_rows),facecolor='Gray')
+
+        # plot a sample number into each subplot
+        for row in range(n_rows):
+            for col in range(n_cols):
+                pos = row*n_cols + col
+                img = image[:,:,pos]
+                #print_ndarray('img[{}]'.format((row,col,pos)), img*255, 16, frm='6.0f')
+
+                # plot image in axes
+                axs[row,col].imshow(img, cmap='gray')
+
+                # remove x and y axis
+                axs[row,col].axis('off')
+
+        # remove unecessary white space
+        plt.tight_layout()
+
+        # display image
+        plt.show(block=None)
+        pass
+
+    #tf.compat.v1.disable_eager_execution()
     print('tensorflow version: {0}'.format(tf.__version__))
     print('keras version: {0}'.format(keras.__version__))
     print('tf.executing_eagerly(): {}'.format(tf.executing_eagerly()))
@@ -171,56 +206,54 @@ if __name__ == "__main__":
     data_path = 'D:/Doc/Pyton/mql/data/'
     model_path = 'D:/Doc/Pyton/util/temp/'
 
-    data_shape = (28800,10)  # np.shape(x)[1:]
-    print('data_shape:', data_shape)
+    read_csv = functools.partial(
+        pd.read_csv,
+        parse_dates=['Date'],
+        infer_datetime_format=True,
+        header=0,
+        index_col=0,
+        dtype='float32')
 
-    # create model
-    #model = ResnetBuilder.build(data_shape, name=model_name)
-    model = Preproces.build(data_shape, name=model_name)
-
-    json_config = model.to_json()
-    #print(json_config)
-    with open(f'temp/{model_name}.json', mode='w') as f:
-        f.write(json_config)
-
-    # https://medium.com/analytics-vidhya/basics-of-using-tensorboard-in-tensorflow-1-2-b715b068ac5a
-    logdir = 'C:\logs'
-    tf.compat.v1.summary.FileWriter(logdir, graph=tf.compat.v1.get_default_graph()).close()
+    data_list = ['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
+    targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_50', 'sell_time_50', 'Idx']    # reward_2020.csv
+    targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_100', 'sell_time_100', 'Idx']  # reward_100_2020.csv
 
     dr_train = data_read_pandas(
-        data_file='hilo66_logvar_test.csv',
-        target_file='hilo55_time_test.csv',
+        data_file='hilo66_logvar_2020.csv',
+        #target_file='reward_2020.csv',
+        target_file='reward_100_2020.csv',
         data_path=data_path,
-        data_list = ['LVMN1', 'LVW1',  'LVD1',  'LVH4',  'LVH1',  'LVM15', 'LVM5',  'LVM1', 'Idx', 'Close'],
-        targets_list = ['buy_time_50', 'sell_time_50',],
+        data_list = data_list,
+        targets_list = targets_list,
+        read_fn=read_csv,
         )
 
-    seq_len = 28800
-    target_seq = 5
-    target_shift = -2
+    seq_len = 256
+    target_seq = 0
+    target_shift = 0
 
     dr_train.set_params(data_seq=seq_len, target_seq=target_seq, target_shift=target_shift)
     print(dr_train)
 
-    #idx=[28799, 35999, 43199]
-    idx=[28799, 28804, 28809]
+    idx = [28799, 35999]
     x, y = dr_train.get_dataset(idx)
     print_ndarray('\nx = dr_train.get_dataset({})'.format(idx), x, 10, frm='8.3f')
     print_ndarray('y = dr_train.get_dataset({})\n'.format(idx), y, 10, frm='8.3f')
 
-    embed = model.predict(x)
-    n = np.shape(embed)[-1]
-    b = np.shape(embed)[0]
-    print_ndarray('embed = model.predict({})\n'.format(idx), embed, 0, frm='8.3f')
-    """
-    for i in range(n):
-        print_ndarray('', np.transpose(embed[...,i], (0,2,1)), 16, frm='8.3f')
-        print('----', i)
-    """
+    nbins = 15
+    p_range = [10,90]
+    treshold = 0.050
 
-    for j in range(b):
-        print_ndarray('', np.transpose(embed[j,:,:], (1,0)), 16, frm='8.3f')
-        #print_ndarray('', np.transpose(embed[j,:,:,i], (1,0)), 16, frm='8.3f')
-        print('----', j)
+    if not tf.executing_eagerly():
+        data_shape = np.shape(x)[1:]
+        model = Preproces.build(data_shape, name=model_name, nbins=nbins, p_range=p_range, treshold=treshold)
+        logdir = 'C:\logs'
+        tf.compat.v1.summary.FileWriter(logdir, graph=tf.compat.v1.get_default_graph()).close()
+        assert False, 'write graph'
 
-    pass
+    output = prep(x, nbins=nbins, p_range=p_range, treshold=treshold)
+    print_ndarray('\noutput\n', output, 0)
+
+    for i in range(output.shape[0]):
+        image = output[i]
+        draw_img(image, n_cols=9, n_rows=4)
