@@ -88,7 +88,7 @@ def prep(inputs: np.ndarray,
                 _digitize,
                 _histogram2d
     """
-    print('\nprep():', nbins, p_range, treshold,)
+    #print('\nprep():', nbins, p_range, treshold,)
 
     # inputs
     #  0       1       2      3        4      5      6       7      8      9       10      11      12       13      14      15      16
