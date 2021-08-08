@@ -51,7 +51,7 @@ class Preproces(object):
             treshold = kwarg.setdefault('treshold', 0.050)
             p_range = kwarg.setdefault('p_range', [5, 95])
         """
-        print(f'\n-- ResnetEmbed.build(input_shape={input_shape}, name={name}, {kwarg})\n')
+        print(f'\n-- Preproces.build(input_shape={input_shape}, name={name}, {kwarg})\n')
 
         inputs = keras.layers.Input(input_shape, name='input')
         x = inputs
