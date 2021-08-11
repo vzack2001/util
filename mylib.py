@@ -334,7 +334,10 @@ class Profiler(object):
         self.expected_time = expected_time
 
     def __enter__(self):
-        print('\n>>>', self.name, '>>>')
+        s = self.name
+        if self.expected_time is not None:
+            s += ', ET: {:.1f} sec.'.format(self.expected_time)
+        print('\n>>>', s, '>>>')
         self._startTime = time.time()
         self._stepTime = self._startTime
         self._pid = os.getpid()
