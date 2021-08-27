@@ -193,6 +193,15 @@ class data_read_numpy(object):
         idx = self.get_safe_idx(idx, data_seq, target_seq, target_shift)
         return self._get_data(idx, data_seq, target_seq, target_shift)  # x, y
 
+    def get_batch_idx(self, idx=None, data_seq=None, target_seq=None, target_shift=None, batch_size=1):
+        """ return batch (idx-started) data-targets sequences
+        """
+        data_seq, target_seq, target_shift = self.get_overrided(data_seq, target_seq, target_shift)
+        idx = self.get_safe_idx(idx, data_seq, target_seq, target_shift)
+        idx = [list(range(i, i + batch_size)) for i in idx]
+        idx = np.reshape(idx, -1)
+        return idx  # self._get_data(idx, data_seq, target_seq, target_shift)  # x, y
+
     def _gen_batch_idx(self, idx, data_seq, target_seq, target_shift, batch_size, shuffle):
         """ generate x, y batches unsafe to batch_size
             https://habr.com/ru/post/332074/
@@ -765,17 +774,38 @@ if __name__ == "__main__":
     print_ndarray('_, y = dr.get_dataset()', y)
     print('=================================================================================')
 
-    a = np.asarray(range(867996), dtype=np.float32)
-    print_ndarray('a = np.asarray(range(12346), dtype=np.float32)', a)
 
-    dr = data_read_numpy(a, targets=a)
+    n = 867996
+    actor_steps = 128
+
+    a = np.asarray(range(n), dtype=np.float32)
+    print_ndarray(f'a = np.asarray(range({n}), dtype=np.float32)', a, frm='6.0f')
+
+    dr = data_read_numpy(a, targets=a, data_seq=60, target_seq=0, target_shift=0)
     print(dr)
+    print('dr.data[-1] =', dr.data[-1])
 
     idx = dr.get_safe_idx(data_seq=60, target_seq=1, target_shift=1)
-    print_ndarray('idx = dr.get_safe_idx()', idx)
+    print_ndarray('idx = dr.get_safe_idx(data_seq=60, target_seq=1, target_shift=1)', idx)
 
-    idx = dr.safe_idx_split(num_steps=128, num_parts=8, data_seq=60, target_seq=0, target_shift=2)
-    print_ndarray('idx = dr.safe_idx_split()', idx)
+    idx = dr.safe_idx_split(num_steps=actor_steps, num_parts=8, data_seq=60, target_seq=1, target_shift=1)
+    print_ndarray(f'idx = dr.safe_idx_split(num_steps={actor_steps}, num_parts=8, data_seq=60, target_seq=1, target_shift=1)', idx)
+
+    idx = idx[:,::actor_steps]       # (8, 848) # start positions
+    print_ndarray(f'idx = idx[:,::{actor_steps}]', idx)
+
+    idx = [idx[0,0], idx[-1,-1]]
+    print('[idx[0,0], idx[-1,-1]]', idx)
+
+    idx = dr.get_batch_idx(idx, batch_size=actor_steps+1)
+    print('dr.get_batch_idx(idx, batch_size=actor_steps):', idx, np.shape(idx))
+
+    x, y = dr.get_dataset(idx)
+    print_ndarray(f'x,_ = dr.get_dataset({len(idx)})', x)
+    print_ndarray(f'_,y = dr.get_dataset({len(idx)})', y)
+
+    #idx = np.reshape(idx, (-1, actor_steps+1))
+
 
     import traceback
     a = []
