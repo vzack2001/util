@@ -198,7 +198,7 @@ class data_read_numpy(object):
         """
         data_seq, target_seq, target_shift = self.get_overrided(data_seq, target_seq, target_shift)
         idx = self.get_safe_idx(idx, data_seq, target_seq, target_shift)
-        idx = [list(range(i, i + batch_size)) for i in idx]
+        idx = [list(range(i, i + batch_size)) for i in idx]  # (len(idx), batch_size)
         idx = np.reshape(idx, -1)
         return idx  # self._get_data(idx, data_seq, target_seq, target_shift)  # x, y
 
