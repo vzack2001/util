@@ -60,6 +60,12 @@ class data_read_numpy(object):
         s += f'\n\tdtype={self.dtype})'
         return s
 
+    def len(self, idx=None, data_seq=None, target_seq=None, target_shift=None, batch_size=1):
+        """ get safe_idx len
+        """
+        idx = self.get_safe_idx(idx=idx, data_seq=data_seq, target_seq=target_seq, target_shift=target_shift)
+        return (len(idx) // batch_size) * batch_size
+
     def idx_reset(self):
         """ reset index order
         """
@@ -774,7 +780,6 @@ if __name__ == "__main__":
     print_ndarray('_, y = dr.get_dataset()', y)
     print('=================================================================================')
 
-
     n = 867996
     actor_steps = 128
 
@@ -784,6 +789,11 @@ if __name__ == "__main__":
     dr = data_read_numpy(a, targets=a, data_seq=60, target_seq=0, target_shift=0)
     print(dr)
     print('dr.data[-1] =', dr.data[-1])
+
+    print('\ndr.len():', dr.len())
+    print('dr.len(data_seq=10, target_seq=0, target_shift=0):', dr.len(data_seq=10, target_seq=0, target_shift=0))
+    print('dr.len(batch_size=10):', dr.len(batch_size=10))
+    print()
 
     idx = dr.get_safe_idx(data_seq=60, target_seq=1, target_shift=1)
     print_ndarray('idx = dr.get_safe_idx(data_seq=60, target_seq=1, target_shift=1)', idx)
