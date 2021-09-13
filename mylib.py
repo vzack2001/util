@@ -483,9 +483,11 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     def get_body_str(a):
 
         # ??? convert to 2D-array or # raise ValueError('Array shape size must be 2 or less. Try some array slice..')
+        if len(np.shape(a)) == 4:
+            a = a[0,:,:,0]
         if len(np.shape(a)) == 3:
             a = a[0,:,:]
-        if len(np.shape(a)) > 3:
+        if len(np.shape(a)) > 4:
             a = a.flat
         # convert to 2D-array
         if len(np.shape(a)) < 2:
