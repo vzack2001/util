@@ -1,19 +1,17 @@
+""" create keras preproces model
 """
-    create keras preproces model
-"""
-#import warnings
-#warnings.filterwarnings('ignore', module='tensorflow')
-
 import numpy as np
 import pandas as pd
-import functools
 
 import tensorflow as tf
 from tensorflow import keras
-#from tensorflow.python.ops import math_ops
 
-import tf_func #as helper
-from mylib import data_read_pandas
+#import warnings
+#warnings.filterwarnings('ignore', module='tensorflow')
+
+import functools
+
+import tf_func # tf helper funcs
 
 
 def get_db_bins():
@@ -165,13 +163,13 @@ def prep(inputs: np.ndarray,
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from mylib import print_ndarray
+    from mylib import print_ndarray, data_read_pandas
 
     def draw_img(image,
             n_cols=9,
             n_rows=4,
         ):
+        import matplotlib.pyplot as plt
         # create a grid of plots
         # https://colorscheme.ru/html-colors.html
         fig, axs = plt.subplots(n_rows,n_cols,figsize=(n_cols,n_rows),facecolor='Gray')
@@ -194,7 +192,7 @@ if __name__ == "__main__":
 
         # display image
         plt.show(block=None)
-        pass
+        pass  # draw_img()
 
     #tf.compat.v1.disable_eager_execution()
     print('tensorflow version: {0}'.format(tf.__version__))
