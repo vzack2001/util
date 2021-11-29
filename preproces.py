@@ -14,6 +14,62 @@ import functools
 import tf_func # tf helper funcs
 
 
+def strides_mean_var(x: np.ndarray, w=2, logvar=True, epsilon=1e-9):
+    """ x - 2d numpy array shape of (l, m)
+        w - moving window width
+        return - ndarray shape of (l-w+1, 2)  [i] is (mean, variance) for i-previous w samples
+        <<< strides_true_mean_var 100,000 <<<  ET: 9.736 sec.  Mem: rss = 232.38 MB (0.02 MB) / vms = 1021.22 MB (0.00 MB)
+    """
+    from numpy.lib.stride_tricks import as_strided
+
+    a = np.copy(x, order='C')
+    #print(f'strides_mean_var(a[{a.shape}], w={w})', a.strides, x.strides)
+
+    l = np.shape(a)[-0]
+    m = np.shape(a)[-1]
+    n = a.itemsize
+
+    shape = (l-w+1, m*w,)
+    strides = (m*n, n,)    # eq a.strides ?
+    b = as_strided(a, shape=shape, strides=strides)
+    #print_ndarray(f'b = as_strided(a, shape={shape}, strides={strides})', b, frm='8.3f')
+
+    m = np.mean(b, axis=-1)
+    v = np.var(b, axis=-1)
+
+    if logvar:
+        v = np.where(v > epsilon, v, epsilon)
+        v = np.log(v)
+
+    return np.stack([m, v], axis=-1)
+
+
+def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
+
+    #print_ndarray('a', a, frm='8.3f')
+    #              0       1       2      3        4      5      6       7      8      9       10      11      12       13      14      15      16
+    #data_list = ['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
+    _time = [1440, 240, 60, 15, 5, 2, 1]
+    _name = ['D1', 'H4', 'H1', 'M15', 'M5', 'M2', 'M1',]
+    _cols = [(None, 9), (4, 10), (5, 11), (6, 12), (7, 13), (8, 14), (None, 15)]
+
+    n = output_shape[0]
+    res = np.zeros(output_shape, dtype=dtype)
+    res[:,0:4] = a[-n:,0:4]
+    res[:,-1] = range(n)
+
+    for name, w, col in zip(_name, _time, _cols):
+        mv = strides_mean_var(a, w)[-n:]  # last 256
+
+        if col[0] is not None:
+            res[:,col[0]] = mv[:,0]
+
+        if col[1] is not None:
+            res[:,col[1]] = mv[:,1]
+
+    return res
+
+
 def get_db_bins():
 
     _cols = ['percentile','MN1','W1','D1','H4','H1','M15','M5','M1','MN1_W1','W1_D1','D1_H4','H4_H1','H1_M15','M15_M5','M5_M1']
@@ -255,3 +311,16 @@ if __name__ == "__main__":
     for i in range(output.shape[0]):
         image = output[i]
         draw_img(image, n_cols=9, n_rows=4)
+
+
+    # test prepare_data()
+    idx = dr_train.get_safe_idx(data_seq=0, target_seq=0, target_shift=0)[:1695]
+    x, y = dr_train.get_dataset(idx, data_seq=0, target_seq=0, target_shift=0)
+
+    print_ndarray('\nx = dr_train.get_dataset({})'.format((idx[0],idx[-1])), x, 20, frm='7.3f')
+
+    a = x[:1695,:4]  # (1696, 4) (1440+256, 4)
+
+    res = prepare_data(a, output_shape=(256, 17))
+    print_ndarray('res', res, 20, frm='7.3f')
+
