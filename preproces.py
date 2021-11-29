@@ -67,7 +67,7 @@ def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
         if col[1] is not None:
             res[:,col[1]] = mv[:,1]
 
-    return res
+    return res[None,...]  # add batch dim
 
 
 def get_db_bins():
