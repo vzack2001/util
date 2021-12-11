@@ -28,6 +28,49 @@ _read_csv = functools.partial(
     index_col=0,
     dtype='float32')
 
+def seq_safe_idx(a: np.ndarray, idx=None, data_seq=1, target_seq=0, target_shift=0):
+    """ get valid index list
+            a: np.ndarray, shape of (n,...)
+    """
+    n = a.shape[0]
+    if idx is None:
+        idx = np.arange(n, dtype=np.int32)
+
+    if isinstance(idx[0], bool):
+        idx = np.arange(n, dtype=np.int32)[idx]
+
+    idx = np.asarray(idx, dtype=np.int32)
+
+    # check data_seq validity
+    idx = idx[idx < n]
+    idx = idx[idx-(data_seq-1) >= 0]
+
+    # check target_seq validity
+    idx = idx[(idx+(target_seq-1)+target_shift) < n]
+    idx = idx[(idx+target_shift) >= 0]
+
+    return idx
+
+def batch_from_seq(data: np.ndarray, targets: np.ndarray, idx, data_seq=1, target_seq=0, target_shift=0, dtype=np.float32):
+    """ get x, y (data, targets) dataset for input indices
+            data = x[idx-data_seq:idx]
+            targets = y[idx]
+        # 0.062 sec (on batch_size=10000 (6589023/6588963) rec. data_seq=60)
+    """
+    x = []
+    y = []
+    for i in idx:
+        if data_seq > 0:
+            x.append(data[i - (data_seq-1) : i + 1])
+        else:
+            x.append(data[i])
+        if target_seq > 0:
+            y.append(targets[i + target_shift : i + target_seq + target_shift])
+        else:
+            y.append(targets[i + target_shift])
+
+    return np.array(x, dtype=dtype), np.array(y, dtype=dtype) # x, y
+
 
 class data_read_numpy(object):
 
