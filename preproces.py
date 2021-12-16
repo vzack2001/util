@@ -53,13 +53,16 @@ def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
     _name = ['D1', 'H4', 'H1', 'M15', 'M5', 'M2', 'M1',]
     _cols = [(None, 9), (4, 10), (5, 11), (6, 12), (7, 13), (8, 14), (None, 15)]
 
-    n = output_shape[0]
-    res = np.zeros(output_shape, dtype=dtype)
-    res[:,0:4] = a[-n:,0:4]
-    res[:,-1] = range(n)
-
     for name, w, col in zip(_name, _time, _cols):
-        mv = strides_mean_var(a, w)[-n:]  # last 256
+        mv = strides_mean_var(a, w)
+
+        if w == 1440:  # init res array
+            n = mv.shape[0]
+            res = np.zeros((n, output_shape[1]), dtype=dtype)
+            res[:,0:4] = a[-n:,0:4]
+            res[:,-1] = range(n)
+
+        mv = mv[-n:]  # last `n`
 
         if col[0] is not None:
             res[:,col[0]] = mv[:,0]
@@ -67,7 +70,8 @@ def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
         if col[1] is not None:
             res[:,col[1]] = mv[:,1]
 
-    return res[None,...]  # add batch dim
+    #return res[None,...]  # add batch dim
+    return res
 
 
 def get_db_bins():
@@ -116,10 +120,10 @@ class Preproces(object):
 
         model = keras.Model(inputs, x, name=name)
 
-        model.summary()
-        print('model.inputs :', model.inputs)
-        print('model.outputs:', model.outputs)
-        print()
+        #model.summary()
+        #print('model.inputs :', model.inputs)
+        #print('model.outputs:', model.outputs)
+        #print()
 
         return model
 
@@ -219,7 +223,7 @@ def prep(inputs: np.ndarray,
 
 
 if __name__ == "__main__":
-    from mylib import print_ndarray, data_read_pandas
+    from mylib import print_ndarray, data_read_pandas, seq_safe_idx, batch_from_seq
 
     def draw_img(image,
             n_cols=9,
@@ -314,13 +318,23 @@ if __name__ == "__main__":
 
 
     # test prepare_data()
-    idx = dr_train.get_safe_idx(data_seq=0, target_seq=0, target_shift=0)[:1695]
+    idx = dr_train.get_safe_idx(data_seq=0, target_seq=0, target_shift=0)[:2695]
     x, y = dr_train.get_dataset(idx, data_seq=0, target_seq=0, target_shift=0)
 
     print_ndarray('\nx = dr_train.get_dataset({})'.format((idx[0],idx[-1])), x, 20, frm='7.3f')
 
-    a = x[:1695,:4]  # (1696, 4) (1440+256, 4)
+    a = x[:2695,:4]  # (1696, 4) (1440+256, 4)
 
     res = prepare_data(a, output_shape=(256, 17))
     print_ndarray('res', res, 20, frm='7.3f')
+
+    #seq_safe_idx, batch_from_seq
+    idx = seq_safe_idx(res, idx=None, data_seq=256, target_seq=0, target_shift=0)
+    print_ndarray(f'idx', idx)
+    idx = idx[::-5] #[::-1]
+    print_ndarray(f'idx', idx)
+
+    x, y = batch_from_seq(res, res[:,-1:], idx, data_seq=256, target_seq=0, target_shift=0, dtype=np.float32)
+    print_ndarray(f'x', x, 20, frm='7.3f')
+    print_ndarray('', y)
 
