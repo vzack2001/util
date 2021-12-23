@@ -56,7 +56,7 @@ def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
     for name, w, col in zip(_name, _time, _cols):
         mv = strides_mean_var(a, w)
 
-        if w == 1440:  # init res array
+        if w == _time[0]:  # 1440  # init res array
             n = mv.shape[0]
             res = np.zeros((n, output_shape[1]), dtype=dtype)
             res[:,0:4] = a[-n:,0:4]
@@ -70,7 +70,6 @@ def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
         if col[1] is not None:
             res[:,col[1]] = mv[:,1]
 
-    #return res[None,...]  # add batch dim
     return res
 
 
