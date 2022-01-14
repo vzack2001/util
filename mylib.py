@@ -423,8 +423,11 @@ class Profiler(object):
 def _is_empty(a):
     if a is None:
         return True
-    if np.prod(np.shape(a)) == 0:
-        return True
+    try:
+        if np.prod(np.shape(a)) == 0:
+            return True
+    except:
+        return None
     return False
 
 
@@ -475,6 +478,8 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
     type_a = object.__repr__(a)  #type(a)
     shape_a = np.shape(a)
     a_is_empty = _is_empty(a)
+    if a_is_empty is None:
+        return None
 
     a = np.asarray(a)
 
