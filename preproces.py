@@ -10,7 +10,7 @@ from tensorflow import keras
 #warnings.filterwarnings('ignore', module='tensorflow')
 
 import functools
-
+import ml_collections
 import tf_func # tf helper funcs
 
 
@@ -43,15 +43,18 @@ def strides_mean_var(x: np.ndarray, w=2, logvar=True, epsilon=1e-9):
 
     return np.stack([m, v], axis=-1)
 
-
-def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
+def prepare_data(a: np.ndarray, config: ml_collections.ConfigDict, dtype=np.float32):
 
     #print_ndarray('a', a, frm='8.3f')
-    #              0       1       2      3        4      5      6       7      8      9       10      11      12       13      14      15      16
-    #data_list = ['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
-    _time = [1440, 240, 60, 15, 5, 2, 1]
-    _name = ['D1', 'H4', 'H1', 'M15', 'M5', 'M2', 'M1',]
-    _cols = [(None, 9), (4, 10), (5, 11), (6, 12), (7, 13), (8, 14), (None, 15)]
+    #  0       1       2      3        4      5      6       7      8      9       10      11      12       13      14      15      16
+    #['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
+    #['Open', 'High', 'Low', 'Close', 'AD1', 'AH4', 'AH1', 'AM15', 'AM5', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'Idx']
+
+    output_shape = config.output_shape  # (256,17)
+
+    _time = config.p_time  # [1440, 240, 60, 15, 5, 2, 1]                  [7200, 1440, 240, 60, 15, 5, 2]
+    _name = config.p_name  # ['D1', 'H4', 'H1', 'M15', 'M5', 'M2', 'M1',]  ['W1', 'D1', 'H4', 'H1', 'M15', 'M5', 'M2',]
+    _cols = config.p_cols  # [(None, 9), (4, 10), (5, 11), (6, 12), (7, 13), (8, 14), (None, 15)]
 
     for name, w, col in zip(_name, _time, _cols):
         mv = strides_mean_var(a, w)
@@ -60,7 +63,7 @@ def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
             n = mv.shape[0]
             res = np.zeros((n, output_shape[1]), dtype=dtype)
             res[:,0:4] = a[-n:,0:4]
-            res[:,-1] = range(n)
+            res[:,-1] = range(n-1, -1, -1)
 
         mv = mv[-n:]  # last `n`
 
@@ -74,6 +77,9 @@ def prepare_data(a: np.ndarray, output_shape=(256,17), dtype=np.float32):
 
 
 def get_db_bins():
+    """ create logvar normalization coeff db
+        use in prep()
+    """
 
     _cols = ['percentile','MN1','W1','D1','H4','H1','M15','M5','M1','MN1_W1','W1_D1','D1_H4','H4_H1','H1_M15','M15_M5','M5_M1']
 
@@ -97,18 +103,13 @@ def get_db_bins():
 
     return db_bins
 
-
 class Preproces(object):
 
     @staticmethod
     def build(input_shape, name='preproces', **kwarg):
+        """ kwarg = {config: ml_collections.ConfigDict, nbins=15, treshold=0.050, p_range=[5, 95],}:
         """
-            kwarg = {nbins=15, treshold=0.050, p_range=[5, 95],}:
-            nbins = kwarg.setdefault('nbins', 15)
-            treshold = kwarg.setdefault('treshold', 0.050)
-            p_range = kwarg.setdefault('p_range', [5, 95])
-        """
-        print(f'\n-- Preproces.build(input_shape={input_shape}, name={name}, {kwarg})\n')
+        #print(f'\n-- Preproces.build(input_shape={input_shape}, name={name}, {kwarg})\n')
 
         inputs = keras.layers.Input(input_shape, name='input')
         x = inputs
@@ -129,12 +130,12 @@ class Preproces(object):
     pass  # Preproces
 
 
-def prep(inputs: np.ndarray,
+def prep(inputs: np.ndarray, config: ml_collections.ConfigDict=None,
         nbins=15,
         p_range=[5,95],
         treshold=0.050,
     ):
-    """ kwarg = {nbins=15, treshold=0.050, p_range=[5, 95]}
+    """ kwarg = {config: ml_collections.ConfigDict, nbins=15, treshold=0.050, p_range=[5, 95]}
 
         prepare data inputs
             from shape (?,256,17)
@@ -144,19 +145,20 @@ def prep(inputs: np.ndarray,
                 _value_range,
                 _digitize,
                 _histogram2d
+
     """
-    #print('\nprep():', nbins, p_range, treshold,)
+    #print(f'\nprep({config.name}):\n', nbins, p_range, treshold)
 
-    # inputs
-    #  0       1       2      3        4      5      6       7      8      9       10      11      12       13      14      15      16
+    #  0       1       2      3        4      5      6       7      8      9       10      11      12      13       14      15      16
     #['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
+    #['Open', 'High', 'Low', 'Close', 'AD1', 'AH4', 'AH1', 'AM15', 'AM5', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'Idx']
 
-    _time = [256, 64, 16, 16]
-    _name = ['H4', 'H1', 'M15', 'M5', 'M2', 'D1',]
+    _time = config._time              # [256, 64, 16, 16]                       [1024, 256, 64, 16]
+    _name = config._name              # ['H4', 'H1', 'M15', 'M5', 'M2', 'D1',]  ['D1', 'H4', 'H1', 'M15', 'M5', 'W1',]
 
-    mean_cols = [4, 5, 6, 7, 8]
-    logvar_cols = { 'D1': 9,  'H4': 10,  'H1': 11,  'M15': 12, 'M5': 13,  'M2': 14,  'M1': 15 }
-
+    mean_cols = config.mean_cols      # [4, 5, 6, 7, 8]                         [4, 5, 6, 7, 8]
+    logvar_cols = config.logvar_cols  # { 'D1': 9, 'H4': 10, 'H1': 11,  'M15': 12, 'M5': 13, 'M2': 14, 'M1': 15 }
+                                      # { 'W1': 9, 'D1': 10, 'H4': 11,  'H1': 12, 'M15': 13, 'M5': 14, 'M2': 15}
     output = []
 
     db_bins = get_db_bins()
@@ -168,6 +170,7 @@ def prep(inputs: np.ndarray,
 
         with tf.name_scope(name):
             data = inputs[:,-t:,:]
+            #print_ndarray(f'{i} {t}: {lv_slow} {lv_fast} / {mean_cols[i]} {mean_cols[i+1]}', data, 0, frm='8.3f')
 
             # mean section
             ohlc_values = data[...,0:4]         # ['Open', 'High', 'Low', 'Close',]
@@ -221,13 +224,76 @@ def prep(inputs: np.ndarray,
     return output
 
 
+def get_prep256_config(data_file='hilo66_logvar_2020.csv', target_file='reward_100_2020.csv'):
+    """ Returns `prep` configuration.
+        logvar data_file
+        ['Date', 'Close1', 'Open', 'High', 'Low', 'Close', 'Spread', 'LVMN1', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'AMN1', 'AW1', 'AD1', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'AM1', 'Idx'],
+          0       1         2       3       4      5        6         7        8       9       10      11      12       13      14      15      16      17     18     19     20     21      22     23     24     25
+    """
+    config = ml_collections.ConfigDict()
+    config.name = 'prepH4M2_256'
+
+    config.data_file = data_file
+    config.target_file = target_file
+    #                    0       1        2     3        4      5      6       7      8      9       10      11      12       13      14      15      16
+    config.data_list = ['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
+    config.targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_100', 'sell_time_100', 'Idx']
+
+    config._time = [256, 64, 16, 16]
+    config._name = ['H4', 'H1', 'M15', 'M5', 'M2', 'D1',]
+    config.mean_cols = [4, 5, 6, 7, 8]
+    config.logvar_cols = { 'D1': 9,  'H4': 10,  'H1': 11,  'M15': 12, 'M5': 13,  'M2': 14,  'M1': 15 }
+
+    config.p_time = [1440, 240, 60, 15, 5, 2, 1]
+    config.p_name = ['D1', 'H4', 'H1', 'M15', 'M5', 'M2', 'M1',]
+    config.p_cols = [(None, 9), (4, 10), (5, 11), (6, 12), (7, 13), (8, 14), (None, 15)]
+
+    config.output_shape = (256,17)
+    config.input_shape = config.output_shape
+
+    print('set config:', config.name)
+
+    return config
+
+def get_prep1024_config(data_file='hilo66_logvar_2020.csv', target_file='reward_100_2020.csv'):
+    """ Returns `prep` configuration.
+        logvar data_file
+        ['Date', 'Close1', 'Open', 'High', 'Low', 'Close', 'Spread', 'LVMN1', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'AMN1', 'AW1', 'AD1', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'AM1', 'Idx'],
+          0       1         2       3       4      5        6         7        8       9       10      11      12       13      14      15      16      17     18     19     20     21      22     23     24     25
+    """
+    config = ml_collections.ConfigDict()
+    config.name = 'prepD1M5_1024'
+
+    config.data_file = data_file
+    config.target_file = target_file
+    #                    0       1        2     3        4      5      6       7      8      9       10      11      12       13      14      15      16
+    config.data_list = ['Open', 'High', 'Low', 'Close', 'AD1', 'AH4', 'AH1', 'AM15', 'AM5', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'Idx']
+    config.targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_100', 'sell_time_100', 'Idx']
+
+    config._time = [1024, 256, 64, 16]
+    config._name = ['D1', 'H4', 'H1', 'M15', 'M5', 'W1',]
+    config.mean_cols = [4, 5, 6, 7, 8]
+    config.logvar_cols = { 'W1': 9, 'D1': 10, 'H4': 11,  'H1': 12,  'M15': 13, 'M5': 14,  'M2': 15}
+
+    config.p_time = [7200, 1440, 240, 60, 15, 5, 2]
+    config.p_name = ['W1', 'D1', 'H4', 'H1', 'M15', 'M5', 'M2',]
+    config.p_cols = [(None, 9), (4, 10), (5, 11), (6, 12), (7, 13), (8, 14), (None, 15)]
+
+    config.output_shape = (1024,17)
+    config.input_shape = config.output_shape
+
+    print('set config:', config.name)
+
+    return config
+
+
 if __name__ == "__main__":
     from mylib import print_ndarray, data_read_pandas, seq_safe_idx, batch_from_seq
 
-    def draw_img(image,
-            n_cols=9,
-            n_rows=4,
-        ):
+    pd.set_option('display.max_columns', 500)
+    #pd.set_option('display.width', 1000)
+
+    def draw_img(image, n_cols=9, n_rows=4):
         import matplotlib.pyplot as plt
         # create a grid of plots
         # https://colorscheme.ru/html-colors.html
@@ -263,58 +329,88 @@ if __name__ == "__main__":
     data_path = 'D:/Doc/Pyton/mql/data/'
     model_path = 'D:/Doc/Pyton/util/temp/'
 
-    read_csv = functools.partial(
-        pd.read_csv,
-        parse_dates=['Date'],
-        infer_datetime_format=True,
-        header=0,
-        index_col=0,
-        dtype='float32')
+    def get_data(data_list, targets_list, data_path='D:/Doc/Pyton/mql/data/'):
 
-    data_list = ['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
-    targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_50', 'sell_time_50', 'Idx']    # reward_2020.csv
-    targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_100', 'sell_time_100', 'Idx']  # reward_100_2020.csv
+        read_csv = functools.partial(
+            pd.read_csv,
+            parse_dates=['Date'],
+            infer_datetime_format=True,
+            header=0,
+            index_col=0,
+            dtype='float32')
 
-    dr_train = data_read_pandas(
-        data_file='hilo66_logvar_2020.csv',
-        #target_file='reward_2020.csv',
-        target_file='reward_100_2020.csv',
-        data_path=data_path,
-        data_list = data_list,
-        targets_list = targets_list,
-        read_fn=read_csv,
-        )
+        data = data_read_pandas(
+            data_file='hilo66_logvar_2020.csv',
+            #target_file='reward_2020.csv',
+            target_file='reward_100_2020.csv',
+            data_path=data_path,
+            data_list = data_list,
+            targets_list = targets_list,
+            read_fn=read_csv,
+            )
 
-    seq_len = 256
-    target_seq = 0
-    target_shift = 0
+        return data
 
-    dr_train.set_params(data_seq=seq_len, target_seq=target_seq, target_shift=target_shift)
-    print(dr_train)
+    def test_prep(data, config, idx=[28799, 35999], data_seq=0, target_seq=0, target_shift=0):
+
+        data.set_params(data_seq=data_seq, target_seq=target_seq, target_shift=target_shift)
+        print(data)
+
+        x, y = data.get_dataset(idx)
+        print_ndarray('\nx = data.get_dataset({})'.format(idx), x, 10, frm='8.3f')
+        print_ndarray('y = data.get_dataset({})\n'.format(idx), y, 10, frm='8.3f')
+
+        nbins = 15
+        p_range = [5,95]
+        treshold = 0.050
+
+        if not tf.executing_eagerly():
+            data_shape = np.shape(x)[1:]
+            model = Preproces.build(data_shape, name=model_name, config=config, nbins=nbins, p_range=p_range, treshold=treshold)
+            logdir = 'C:\logs'
+            tf.compat.v1.summary.FileWriter(logdir, graph=tf.compat.v1.get_default_graph()).close()
+            assert False, 'write graph'
+
+        output = prep(x, config, nbins=nbins, p_range=p_range, treshold=treshold)
+        print_ndarray('\noutput\n', output, 0)  # (2,16,16,36)
+
+        return output
+
 
     idx = [28799, 35999]
-    x, y = dr_train.get_dataset(idx)
-    print_ndarray('\nx = dr_train.get_dataset({})'.format(idx), x, 10, frm='8.3f')
-    print_ndarray('y = dr_train.get_dataset({})\n'.format(idx), y, 10, frm='8.3f')
+    #data_list = ['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
+    #targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_100', 'sell_time_100', 'Idx']  # reward_100_2020.csv
+    config256 = get_prep256_config()
+    dr_train = get_data(config256.data_list, config256.targets_list, data_path=data_path)
 
-    nbins = 15
-    p_range = [10,90]
-    treshold = 0.050
-
-    if not tf.executing_eagerly():
-        data_shape = np.shape(x)[1:]
-        model = Preproces.build(data_shape, name=model_name, nbins=nbins, p_range=p_range, treshold=treshold)
-        logdir = 'C:\logs'
-        tf.compat.v1.summary.FileWriter(logdir, graph=tf.compat.v1.get_default_graph()).close()
-        assert False, 'write graph'
-
-    output = prep(x, nbins=nbins, p_range=p_range, treshold=treshold)
-    print_ndarray('\noutput\n', output, 0)
-
-    for i in range(output.shape[0]):
-        image = output[i]
+    output = test_prep(dr_train, config256, idx=idx, data_seq=256, target_seq=0, target_shift=0)
+    for image in output:
         draw_img(image, n_cols=9, n_rows=4)
 
+    # test prepare_data()
+    x, y = dr_train.get_dataset(idx, data_seq=7200, target_seq=0, target_shift=0)
+    print_ndarray('\nx = .get_dataset({})'.format(idx), x, 20, frm='8.3f')
+
+    y = x[0,:,:4]
+    a = prepare_data(y, config256)
+    print_ndarray(' = .prepare_data({})'.format(np.shape(y)), a, 20, frm='8.3f')
+
+
+    #data_list = ['Open', 'High', 'Low', 'Close', 'AD1', 'AH4', 'AH1', 'AM15', 'AM5', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'Idx']
+    config1024 = get_prep1024_config()
+    dr_train = get_data(config1024.data_list, config1024.targets_list, data_path=data_path)
+
+    output = test_prep(dr_train, config1024, idx=[28799, 35999], data_seq=1024, target_seq=0, target_shift=0)
+    for image in output:
+        draw_img(image, n_cols=9, n_rows=4)
+
+    # test prepare_data()
+    x, y = dr_train.get_dataset(idx, data_seq=9200, target_seq=0, target_shift=0)
+    print_ndarray('\nx = .get_dataset({})'.format(idx), x, 20, frm='8.3f')
+
+    y = x[0,:,:4]
+    a = prepare_data(y, config1024)
+    print_ndarray(' = .prepare_data({})'.format(np.shape(y)), a, 20, frm='8.3f')
 
     # test prepare_data()
     idx = dr_train.get_safe_idx(data_seq=0, target_seq=0, target_shift=0)[:2695]
@@ -324,7 +420,7 @@ if __name__ == "__main__":
 
     a = x[:2695,:4]  # (1696, 4) (1440+256, 4)
 
-    res = prepare_data(a, output_shape=(256, 17))
+    res = prepare_data(a, config256)
     print_ndarray('res', res, 20, frm='7.3f')
 
     #seq_safe_idx, batch_from_seq
