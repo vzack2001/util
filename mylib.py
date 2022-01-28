@@ -405,15 +405,37 @@ class Profiler(object):
 
     def __exit__(self, type, value, traceback):
         self._mem = self._py.memory_info()
-        print('<<<', self.name, '<<<', ' ET: {:.3f} sec.'.format(time.time() - self._startTime),
+        startTime = time.time() - self._startTime
+        #datetime.timedelta(seconds=startTime)
+        print('<<<', self.name, '<<<', ' ET: {:.3f} sec.'.format(startTime),
                                        ' Mem: rss = {:.2f} MB'.format(self._mem[0]/2.**20),
                                        '({:.2f} MB)'.format((self._mem[0]-self._startMem[0])/2.**20),
                                        '/ vms = {:.2f} MB'.format(self._mem[1]/2.**20),
                                        '({:.2f} MB)'.format((self._mem[1]-self._startMem[1])/2.**20), '\n')
     def __repr__(self):
-        s = '{:.3f}/{:.1f} sec.'.format(time.time() - self._stepTime, time.time() - self._startTime)
+
+        def get_time_str(seconds, ticks=False):
+            time_str = 'n/a'
+            if seconds < 120:
+                frm = '.1f'
+                if seconds < 100:
+                    frm = '.2f'
+                    if seconds < 10:
+                        frm = '.3f'
+                time_str = f'{seconds:{frm}}' + (' sec.' if ticks else '')
+            else:
+                frm = '%H:%M' + (' min.' if ticks else '')
+                if seconds < 3600:
+                    frm = '%M:%S' + (' sec.' if ticks else '')
+                time_str = time.strftime(frm, time.gmtime(seconds))
+
+            return time_str
+
+        stepTime = time.time() - self._stepTime
+        startTime = time.time() - self._startTime
+        s = '{}/{}'.format(get_time_str(stepTime), get_time_str(startTime, ticks=True))
         if self.expected_time is not None:
-            s += ' {:.1f}%'.format((time.time() - self._startTime)/self.expected_time * 100.)
+            s += ' {:5.1f}%'.format((startTime)/self.expected_time * 100.)
         self._stepTime = time.time()
         return s
 
@@ -886,5 +908,11 @@ if __name__ == "__main__":
     a = np.random.normal(0, 1, size=(100, 100))
     print('\na = np.random.normal(0, 1, size=(100, 100))')
     print_ndarray('9: (a, count=(5, 10), with_end=True)', a, count=0, with_end=True)
+
+
+    with Profiler('Profiler testing', expected_time=100) as p:
+        for i in range(20):
+            print(p)
+            time.sleep(i)
 
     pass  # test section
