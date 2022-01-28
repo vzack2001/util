@@ -64,6 +64,7 @@ _dense = functools.partial(
         keras.layers.Dense,
         #kernel_regularizer=keras.regularizers.l2(1.e-4),
         #bias_regularizer=keras.regularizers.l2(1.e-4),
+        #activity_regularizer=keras.regularizers.L2(l2=0.01),
     )
 
 def MlpBlock(mlp_dim: int, name='mlp_block'):
@@ -138,15 +139,19 @@ class MlpMix(object):
         x = keras.layers.LayerNormalization()(x)  # epsilon=1e-6
         x = keras.layers.GlobalAveragePooling1D()(x)
 
-        log_prob = _dense(units=config.num_outputs, activation=tf.math.log_softmax, name='log_prob')(x)
+        log_prob = _dense(
+            units=config.num_outputs,
+            activation=tf.math.log_softmax,
+            activity_regularizer=keras.regularizers.L2(l2=0.01),
+            name='log_prob')(x)
         value = _dense(units=1, name='value')(x)
 
         model = keras.Model(inputs, [log_prob, value], name=name)
 
-        model.summary()
-        print('model.inputs :', model.inputs)
-        print('model.outputs:', model.outputs)
-        print()
+        #model.summary()
+        #print('model.inputs :', model.inputs)
+        #print('model.outputs:', model.outputs)
+        #print()
 
         return model
 
