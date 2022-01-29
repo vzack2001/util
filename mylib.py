@@ -422,11 +422,11 @@ class Profiler(object):
                     frm = '.2f'
                     if seconds < 10:
                         frm = '.3f'
-                time_str = f'{seconds:{frm}}' + (' sec.' if ticks else '')
+                time_str = f'{seconds:{frm}}' + (' sec' if ticks else '')
             else:
-                frm = '%H:%M' + (' min.' if ticks else '')
+                frm = '%H:%M' + (' h:m' if ticks else '')
                 if seconds < 3600:
-                    frm = '%M:%S' + (' sec.' if ticks else '')
+                    frm = '%M:%S' + (' m:s' if ticks else '')
                 time_str = time.strftime(frm, time.gmtime(seconds))
 
             return time_str
