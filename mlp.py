@@ -117,6 +117,7 @@ class MlpMix(object):
     def build(
             input_shape: Any,
             config: ml_collections.ConfigDict,
+            log_prob_activity_regularizer=None,  # keras.regularizers.L2(l2=0.01)
             name='mlp_mixer',
         ):
         """
@@ -142,7 +143,7 @@ class MlpMix(object):
         log_prob = _dense(
             units=config.num_outputs,
             activation=tf.math.log_softmax,
-            activity_regularizer=keras.regularizers.L2(l2=0.01),
+            activity_regularizer=log_prob_activity_regularizer,
             name='log_prob')(x)
         value = _dense(units=1, name='value')(x)
 
