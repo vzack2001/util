@@ -132,13 +132,15 @@ class MlpMix(object):
 
         #x = einops.rearrange(x, 'n h w c -> n (h w) c')
         #n, h, w, c = tf.shape(x)
-        x = tf.keras.layers.Reshape((x.shape[1] * x.shape[2], x.shape[3]))(x)
+        x = keras.layers.Reshape((x.shape[1] * x.shape[2], x.shape[3]))(x)
 
         x = MlpMixer(config.tokens_mlp_dim, config.channels_mlp_dim, config.num_blocks, name='mlp_mixer')(x)
 
         # Classifier head
         x = keras.layers.LayerNormalization()(x)  # epsilon=1e-6
         x = keras.layers.GlobalAveragePooling1D()(x)
+
+        feature = keras.layers.Activation(activation='linear', name='feature')(x)
 
         log_prob = _dense(
             units=config.num_outputs,
@@ -147,7 +149,7 @@ class MlpMix(object):
             name='log_prob')(x)
         value = _dense(units=1, name='value')(x)
 
-        model = keras.Model(inputs, [log_prob, value], name=name)
+        model = keras.Model(inputs, [log_prob, value, feature], name=name)
 
         #model.summary()
         #print('model.inputs :', model.inputs)
@@ -192,7 +194,8 @@ if __name__ == "__main__":
     x = np.random.normal(size=size)
     print_ndarray(f'x = np.random.normal(size={size})', x)
 
-    log_prob, value = m(x)
+    log_prob, value, feature = m(x)
     print_ndarray('log_prob', log_prob)
     print_ndarray('value', value)
+    print_ndarray('feature', np.concatenate([feature, np.mean(feature, axis=-1, keepdims=True), np.var(feature, axis=-1, keepdims=True)], axis=-1))
 
