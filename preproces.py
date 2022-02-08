@@ -268,7 +268,7 @@ def get_prep1024_config(data_file='hilo66_logvar_2020.csv', target_file='reward_
     config.target_file = target_file
     #                    0       1        2     3        4      5      6       7      8      9       10      11      12       13      14      15      16
     config.data_list = ['Open', 'High', 'Low', 'Close', 'AD1', 'AH4', 'AH1', 'AM15', 'AM5', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'Idx']
-    config.targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_100', 'sell_time_100', 'Idx']
+    config.targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_100', 'sell_time_100', 'class', 'Idx']
 
     config._time = [1024, 256, 64, 16]
     config._name = ['D1', 'H4', 'H1', 'M15', 'M5', 'W1',]
@@ -329,7 +329,7 @@ if __name__ == "__main__":
     data_path = 'D:/Doc/Pyton/mql/data/'
     model_path = 'D:/Doc/Pyton/util/temp/'
 
-    def get_data(data_list, targets_list, data_path='D:/Doc/Pyton/mql/data/'):
+    def get_data(config, data_path='D:/Doc/Pyton/mql/data/'):
 
         read_csv = functools.partial(
             pd.read_csv,
@@ -340,12 +340,12 @@ if __name__ == "__main__":
             dtype='float32')
 
         data = data_read_pandas(
-            data_file='hilo66_logvar_2020.csv',
+            data_file=config.data_file,      # 'hilo66_logvar_2020.csv',
             #target_file='reward_2020.csv',
-            target_file='reward_100_2020.csv',
+            target_file=config.target_file,  # 'reward_100_2020.csv',
             data_path=data_path,
-            data_list = data_list,
-            targets_list = targets_list,
+            data_list = config.data_list,
+            targets_list = config.targets_list,
             read_fn=read_csv,
             )
 
@@ -380,8 +380,8 @@ if __name__ == "__main__":
     idx = [28799, 35999]
     #data_list = ['Open', 'High', 'Low', 'Close', 'AH4', 'AH1', 'AM15', 'AM5', 'AM2', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'LVM1', 'Idx']
     #targets_list = ['noop', 'buy', 'sell', 'done', 'buy_time_100', 'sell_time_100', 'Idx']  # reward_100_2020.csv
-    config256 = get_prep256_config()
-    dr_train = get_data(config256.data_list, config256.targets_list, data_path=data_path)
+    config256 = get_prep256_config(data_file='hilo66_logvar_2020.csv', target_file='reward_100_2020.csv')
+    dr_train = get_data(config256, data_path=data_path)
 
     output = test_prep(dr_train, config256, idx=idx, data_seq=256, target_seq=0, target_shift=0)
     for image in output:
@@ -397,8 +397,8 @@ if __name__ == "__main__":
 
 
     #data_list = ['Open', 'High', 'Low', 'Close', 'AD1', 'AH4', 'AH1', 'AM15', 'AM5', 'LVW1', 'LVD1', 'LVH4', 'LVH1', 'LVM15', 'LVM5', 'LVM2', 'Idx']
-    config1024 = get_prep1024_config()
-    dr_train = get_data(config1024.data_list, config1024.targets_list, data_path=data_path)
+    config1024 = get_prep1024_config(data_file='hilo66_logvar_2020.csv', target_file='reward_100_2020~.csv')
+    dr_train = get_data(config1024, data_path=data_path)
 
     output = test_prep(dr_train, config1024, idx=[28799, 35999], data_seq=1024, target_seq=0, target_shift=0)
     for image in output:
