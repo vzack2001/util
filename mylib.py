@@ -244,27 +244,13 @@ class data_read_numpy(object):
 
     def get_batch_idx(self, idx=None, data_seq=None, target_seq=None, target_shift=None, batch_size=1):
         """ return batch (idx-started) data-targets sequences
+            idx = .get_batch_idx(starts, batch_size=actor_steps+1)  # starts=[0, 31, 63, ] batch_size=32
         """
         data_seq, target_seq, target_shift = self.get_overrided(data_seq, target_seq, target_shift)
         idx = self.get_safe_idx(idx, data_seq, target_seq, target_shift)
         idx = [list(range(i, i + batch_size)) for i in idx]  # (len(idx), batch_size)
         idx = np.reshape(idx, -1)
         return idx  # self._get_data(idx, data_seq, target_seq, target_shift)  # x, y
-
-    def _gen_batch_idx(self, idx, data_seq, target_seq, target_shift, batch_size, shuffle):
-        """ generate x, y batches unsafe to batch_size
-            https://habr.com/ru/post/332074/
-            https://towardsdatascience.com/how-to-use-dataset-in-tensorflow-c758ef9e4428
-        """
-        if shuffle:
-            np.random.shuffle(idx)
-        idx = np.reshape(idx, (-1, batch_size))
-        batch_count = np.shape(idx)[0]
-        for i in range(batch_count):
-            x, y = self._get_data(idx[i], data_seq, target_seq, target_shift)
-            yield idx[i], x, y
-
-        pass  # _gen_batch_idx()
 
     def _gen_batch(self, idx, data_seq, target_seq, target_shift, batch_size, shuffle):
         """ generate x, y batches unsafe to batch_size
@@ -281,14 +267,14 @@ class data_read_numpy(object):
 
         pass  # _gen_batch()
 
-    def gen_batch_idx(self, data_seq=None, target_seq=None, target_shift=None, batch_size=1, shuffle=False, verbose=False):
+    def gen_batch_idx(self, idx, data_seq=None, target_seq=None, target_shift=None, batch_size=1, shuffle=False, verbose=False):
         """ generate x, y batches
             align on batch_size
         """
         #print('gen_batch_idx(')
 
         data_seq, target_seq, target_shift = self.get_overrided(data_seq, target_seq, target_shift)
-        idx = self.get_safe_idx(idx=None, data_seq=data_seq, target_seq=target_seq, target_shift=target_shift)
+        idx = self.get_safe_idx(idx=idx, data_seq=data_seq, target_seq=target_seq, target_shift=target_shift)
 
         if verbose:
             print('gen_batch(len(idx)={}/{}, data_seq={}, target_seq={}, target_shift={}, batch_size={}, shuffle={})'.format(
@@ -298,7 +284,7 @@ class data_read_numpy(object):
         start_from = len(idx) - (len(idx) // batch_size) * batch_size
         idx = idx[start_from:]
 
-        yield from self._gen_batch_idx(idx, data_seq, target_seq, target_shift, batch_size, shuffle)
+        yield from self._gen_batch(idx, data_seq, target_seq, target_shift, batch_size, shuffle)
 
         #print('gen_batch() the end')
         pass  # gen_batch_idx()
