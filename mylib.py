@@ -169,19 +169,18 @@ class data_read_numpy(object):
 
         return np.array(x, dtype=self.dtype), np.array(y, dtype=self.dtype) # x, y
 
-    def get_safe_idx(self, idx=None, data_seq=None, target_seq=None, target_shift=None):
+    def get_safe_idx(self, idx=None, data_seq=None, target_seq=None, target_shift=None, dtype=np.int32):
         """ get valid index list
         """
         data_seq, target_seq, target_shift = self.get_overrided(data_seq, target_seq, target_shift)
 
         if idx is None:
-            idx = np.arange(self.rec_count, dtype=np.int32)
+            idx = np.arange(self.rec_count, dtype=dtype)
 
         if isinstance(idx[0], bool):
-            idx = np.arange(self.rec_count, dtype=np.int32)[idx]
+            idx = np.arange(self.rec_count, dtype=dtype)[idx]
 
-        idx = np.asarray(idx, dtype=np.int32)
-        #print_ndarray('idx = np.asarray(idx, dtype=np.int32)', idx, 12, frm='%8.0f')
+        idx = np.asarray(idx, dtype=dtype)
 
         # check data_seq validity
         idx = idx[idx < self.rec_count]
@@ -193,47 +192,49 @@ class data_read_numpy(object):
 
         return idx
 
-    def safe_idx_split(self, num_steps=128, num_parts=8, **kwargs):
+    def safe_idx_split(self, num_steps=128, num_parts=8, dtype=np.int32, **kwargs):
+        """ kwargs
+            idx=None, data_seq=None, target_seq=None, target_shift=None
+            return idx - np.ndarray (num_parts, part_steps)
+        """
+        safe_idx = self.get_safe_idx(dtype=dtype, **kwargs)
 
-        safe_idx = self.get_safe_idx(**kwargs)
+        size = len(safe_idx)
+        k = num_steps * num_parts
+        m = size/k
+
+        part_batch = np.int(np.ceil(m))
+        part_steps = part_batch * num_steps
+
+        # add overlapped samples
+        n = part_steps * num_parts - size
 
         if num_parts == 1:
-            return np.reshape(safe_idx[len(safe_idx) - len(safe_idx) // num_steps * num_steps:], (1,-1))
+            idx = np.arange(size, dtype=dtype)
+            np.random.shuffle(idx)
+            idx = idx[:n]
+            out = np.insert(safe_idx, idx, safe_idx[idx])
+            return np.reshape(out, (1,-1))
 
-        k = num_steps * num_parts            # 128 * 8 = 1024
-        m = len(safe_idx)/k                  # 867937 / 1024 = 847.5947265625
+        # https://math.stackexchange.com/questions/2975936/split-a-number-into-n-numbers
+        # to distribute the number n into p parts, we would calculate the
+        # “truncating integer division” of n divided by p, and the corresponding remainder.
+        p = num_parts - 1
+        d = n // p  # truncating integer division
+        r = n % p   # remainder
 
-        part_iters = np.int(np.ceil(m))      # 848
-        part_steps = part_iters * num_steps  # 108544
-
-        a = np.ceil((part_steps - m * num_steps) / num_parts) # overlapped samples per part (7)
+        # generate parts
+        parts = [0] + [d+1 for i in range(r)] + [d for i in range(p-r)]
 
         out = []
-        to_ = 0
+        _to = 0
         for i in range(num_parts):
-            from_ = np.int(i * (m * num_steps - a))
-
-            from_to = to_ - from_  # overlapped samples  # debug only
-
-            to_ = from_ + part_steps
-            idx = safe_idx[from_ : to_]
-
-            if len(idx) < part_steps:
-                from_to = from_ + from_to  # debug only
-
-                to_ = len(safe_idx)
-                from_ = to_ - part_steps
-
-                from_to = from_to - from_  # debug only
-
-                idx = safe_idx[from_ : to_]
-
+            _from = _to - parts[i]
+            _to = _from + part_steps
+            idx = safe_idx[_from:_to]
             out.append(idx)
-            #print(i, (from_, to_), from_to, (idx[0], idx[-1]), len(idx), len(idx)-part_steps)
 
-        out = np.asarray(out, np.int32)  # (8, 108544)
-
-        return out
+        return np.asarray(out, dtype=dtype)
 
     def get_dataset(self, idx=None, data_seq=None, target_seq=None, target_shift=None):
         """ return whole data-targets sequences
