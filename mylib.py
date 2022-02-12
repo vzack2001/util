@@ -209,12 +209,16 @@ class data_read_numpy(object):
         # add overlapped samples
         n = part_steps * num_parts - size
 
-        if num_parts == 1:
+        if size < num_steps:
+            n = num_steps - size
+
+        if num_parts == 1 or size < num_steps:
             idx = np.arange(size, dtype=dtype)
             np.random.shuffle(idx)
             idx = idx[:n]
             out = np.insert(safe_idx, idx, safe_idx[idx])
-            return np.reshape(out, (1,-1))
+            out = np.reshape(out, (1,-1))
+            return np.repeat(out, num_parts, axis=0)
 
         # https://math.stackexchange.com/questions/2975936/split-a-number-into-n-numbers
         # to distribute the number n into p parts, we would calculate the
@@ -896,10 +900,11 @@ if __name__ == "__main__":
     print('\na = np.random.normal(0, 1, size=(100, 100))')
     print_ndarray('9: (a, count=(5, 10), with_end=True)', a, count=0, with_end=True)
 
-
+    '''
     with Profiler('Profiler testing', expected_time=100) as p:
         for i in range(20):
             print(p)
             time.sleep(i)
+    '''
 
     pass  # test section
