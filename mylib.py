@@ -475,6 +475,9 @@ def _data_format_string(a):
     m = 0 if p > 4 else fract_part[p]
     p = max(p, 1)
 
+    if a_min == 0 and a_max == 1:
+        m = 0
+
     if type(a.flat[0]).__name__.find('int') > -1:
         m = 0
 

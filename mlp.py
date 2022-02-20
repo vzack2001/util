@@ -53,7 +53,7 @@ def get_mixer_s4_config():
     config.name = 'Mixer-S_4'
     config.patches = ml_collections.ConfigDict({'size': (4, 4)})
     config.hidden_dim = 128
-    config.num_blocks = 24
+    config.num_blocks = 2 #4
     config.tokens_mlp_dim = 64
     config.channels_mlp_dim = 128
     config.num_outputs = 3
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
     m = MlpMix.build(input_shape, config)
 
-    size = (4096,16,16,36)
+    size = (1024,16,16,36)
     x = np.random.normal(size=size)
     print_ndarray(f'x = np.random.normal(size={size})', x)
 
