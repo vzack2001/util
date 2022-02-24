@@ -260,14 +260,7 @@ def triplet_loss( y_true, y_pred, margin=1.0, distance_metric="L2", ):
 
     loss_mat = tf.math.add(margin, max_inside - min_outside)
 
-    loss = tf.math.truediv(
-        tf.math.reduce_sum(
-            tf.math.maximum(loss_mat, 0.0)
-        ),
-        tf.cast(batch_size, tf.float32),
-    )
-
-    return loss
+    return tf.math.maximum(loss_mat, 0.0)
 
 
 if __name__ == "__main__":
@@ -289,10 +282,10 @@ if __name__ == "__main__":
     pairwise_dist = pairwise_distance(feature, squared=False, L2_normalize=True)
     print_ndarray(f'pairwise_dist', pairwise_dist)
 
-    t = triplet_loss(labels, feature, margin=1.0, distance_metric='squared-L2', )  # 'L2', 'squared-L2', 'angular'
-    print(f'\ntriplet_loss: {t:.3f}')
-
     t = triplet_semihard_loss(labels, feature, margin=1.0, distance_metric='squared-L2', )  # 'L2', 'squared-L2', 'angular'
     print(f'\ntriplet_semihard_loss: {t:.3f}')
+
+    t = triplet_loss(labels, feature, margin=1.0, distance_metric='squared-L2', )  # 'L2', 'squared-L2', 'angular'
+    print_ndarray(f'\ntriplet_loss', t)
 
     pass
