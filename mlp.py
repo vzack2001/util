@@ -111,6 +111,42 @@ def MlpMixer(
     return f
 
 
+class AddPosEmbs(tf.keras.layers.Layer):
+    """ https://github.com/tensorflow/models/blob/master/official/nlp/modeling/layers/position_embedding.py
+        https://github.com/google-research/vision_transformer/blob/main/vit_jax/models.py
+    """
+    def __init__(self,
+            initializer="glorot_uniform",
+            **kwargs):
+        super().__init__(**kwargs)
+        self._initializer = tf.keras.initializers.get(initializer)
+        pass  # __init__()
+
+    def get_config(self):
+        config = {
+            "initializer": tf.keras.initializers.serialize(self._initializer),
+        }
+        base_config = super().get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def build(self, input_shape):
+        # input_shape is (batch_size, seq_len, emb_dim).
+        #pos_emb_shape = (1, input_shape[1], input_shape[2])
+        self._position_embeddings = self.add_weight(
+            "embeddings",
+            shape=input_shape[1:],
+            #shape=pos_emb_shape,
+            initializer=self._initializer)
+
+        super().build(input_shape)
+        pass  # build()
+
+    def call(self, inputs):
+        return inputs + self._position_embeddings
+
+    pass  # AddPosEmbs
+
+
 class MlpMix(object):
 
     @staticmethod
@@ -161,6 +197,61 @@ class MlpMix(object):
     pass  # MlpMix
 
 
+class MlpMix2(object):
+    """ MlpMix (with positional embedding)
+    """
+
+    @staticmethod
+    def build(
+            input_shape: Any,
+            config: ml_collections.ConfigDict,
+            log_prob_activity_regularizer=None,  # keras.regularizers.L2(l2=0.01)
+            name='mlp_mixer',
+        ):
+        """
+        """
+        print(f'\n-- MlpMix.build(input_shape={input_shape}, name={name}, {config})\n')
+
+        #input_shape = (?, 16, 16, 36)  # (batch, height, width, channels)
+        inputs = keras.layers.Input(input_shape, name='input')
+        #x = inputs
+
+        # add positional embedding
+        y = AddPosEmbs()(inputs)
+
+        x = keras.layers.Conv2D(filters=config.hidden_dim, kernel_size=config.patches.size, strides=config.patches.size, name='stem')(y)
+
+        #x = einops.rearrange(x, 'n h w c -> n (h w) c')
+        #n, h, w, c = tf.shape(x)
+        x = keras.layers.Reshape((x.shape[1] * x.shape[2], x.shape[3]))(x)
+
+        x = MlpMixer(config.tokens_mlp_dim, config.channels_mlp_dim, config.num_blocks, name='mlp_mixer')(x)
+
+        # Classifier head
+        x = keras.layers.LayerNormalization()(x)  # epsilon=1e-6
+        x = keras.layers.GlobalAveragePooling1D()(x)
+
+        feature = keras.layers.Activation(activation='linear', name='feature')(x)
+
+        log_prob = _dense(
+            units=config.num_outputs,
+            activation=tf.math.log_softmax,
+            activity_regularizer=log_prob_activity_regularizer,
+            name='log_prob')(x)
+        value = _dense(units=1, name='value')(x)
+
+        model = keras.Model(inputs, [log_prob, value, feature], name=name)
+
+        #model.summary()
+        #print('model.inputs :', model.inputs)
+        #print('model.outputs:', model.outputs)
+        #print()
+
+        return model
+
+    pass  # MlpMix2 (with positional embedding)
+
+
 if __name__ == "__main__":
     from mylib import print_ndarray
 
@@ -184,11 +275,11 @@ if __name__ == "__main__":
 
     if not tf.executing_eagerly():
         logdir = 'C:\logs'
-        m = MlpMix.build(input_shape, config, name='test_model')
+        m = MlpMix2.build(input_shape, config, name='test_model')
         tf.compat.v1.summary.FileWriter(logdir, graph=tf.compat.v1.get_default_graph()).close()
         assert False, 'write graph'
 
-    m = MlpMix.build(input_shape, config)
+    m = MlpMix2.build(input_shape, config)
 
     size = (1024,16,16,36)
     x = np.random.normal(size=size)
@@ -197,5 +288,5 @@ if __name__ == "__main__":
     log_prob, value, feature = m(x)
     print_ndarray('log_prob', log_prob)
     print_ndarray('value', value)
-    print_ndarray('feature', np.concatenate([feature, np.mean(feature, axis=-1, keepdims=True), np.var(feature, axis=-1, keepdims=True)], axis=-1))
+    print_ndarray('feature, mean, var', np.concatenate([feature, np.mean(feature, axis=-1, keepdims=True), np.var(feature, axis=-1, keepdims=True)], axis=-1))
 
