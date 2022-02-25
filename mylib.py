@@ -722,6 +722,84 @@ def diff(x, w=1, reversed=False, dtype=np.float32):
         b[:w-1] = 0
         return np.asarray(b[:-w+1], dtype=dtype)
 
+def draw_img_bychannel(image, n_cols=None, n_rows=None, facecolor='Gray', cmap='gray'):
+    import matplotlib.pyplot as plt
+    # create a grid of plots
+    # https://colorscheme.ru/html-colors.html
+
+    def cols_rows(image, n_cols, n_rows,):
+        """ calc n_cols, n_rows
+        """
+        size = np.shape(image)[-1]
+
+        if n_cols is None and n_rows is None:
+            n = np.sqrt(size)
+            n = int(np.ceil(n))
+            k = n*n - size
+            k = 1 or k
+            n = np.arange(n, n+k)
+
+            m = np.asarray(np.ceil(size / n), dtype=np.int32)
+            k = np.argmin(n*m - size)
+            n_cols = n[k]
+            n_rows = m[k]
+
+        if n_cols is None and n_rows is not None:
+            n_cols = int(np.ceil(size / n_rows))
+
+        if n_cols is not None and n_rows is None:
+            n_rows = int(np.ceil(size / n_cols))
+
+        return n_cols, n_rows
+
+    n_cols, n_rows = cols_rows(image, n_cols, n_rows)
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols, n_rows), facecolor=facecolor)
+
+    if not isinstance(axes, np.ndarray):
+        axes = np.asarray([axes])
+    axes = np.reshape(axes, (n_rows, n_cols))
+
+    # plot a sample number into each subplot
+    image = np.transpose(image, [2,1,0])
+    for pos, img in enumerate(image):
+        # pos = row*n_cols + col
+        row = pos // n_cols
+        if row >= n_rows:
+            break
+        col = pos % n_cols
+        axes[row, col].imshow(img, cmap=cmap)
+
+    for ax in np.reshape(axes, (-1)):
+        ax.axis('off')
+
+    # remove unecessary white space
+    plt.tight_layout()
+
+    # display image
+    plt.show(block=None)
+
+    pass  # draw_img_bychannel()
+
+def generate_cumsum_img(input_shape):
+    """ generate `random cumsum` multi-channel images
+        https://pyprog.pro/indexing_routines/ravel_multi_index.html
+        https://pyprog.pro/indexing_routines/unravel_index.html
+    """
+    h, w, c = input_shape              # (3,5,2)
+
+    img = np.zeros(input_shape, dtype=np.float32)
+
+    r = np.random.normal(size=input_shape[1:])
+    r = np.cumsum(r, axis=0)
+    r = np.int32((r - np.min(r))/(np.max(r) - np.min(r))*(input_shape[0] - 1))     # (5, 2) [0..h-1]
+
+    h = r.ravel()                                                                  # (10,)
+    w, c = np.unravel_index(np.arange(np.prod(input_shape[1:])), input_shape[1:])  # (2, 10) tuple of ndarray
+
+    img[h, w, c] = 1  # img[idx] - not working!
+
+    return np.transpose(img, [1,0,2])
 
 # test
 if __name__ == "__main__":
@@ -909,5 +987,15 @@ if __name__ == "__main__":
             print(p)
             time.sleep(i)
     '''
+
+    batch_size = 2
+    image_shape = (4, 4, 6)
+
+    images = [generate_cumsum_img(image_shape) for _ in range(batch_size)]
+    images = np.asarray(images, dtype=np.float32)
+
+    for i, img in enumerate(images):
+        draw_img_bychannel(img)
+        print_ndarray(f'{i}', img)
 
     pass  # test section
