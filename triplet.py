@@ -195,7 +195,6 @@ def triplet_semihard_loss( y_true, y_pred, margin=1.0, distance_metric="L2", ):
     # negatives_inside: largest D_an.
     negatives_inside = tf.tile(
         _masked_maximum(pdist_matrix, adjacency_not), [1, batch_size]
-        #_masked_maximum(pdist_matrix, adjacency), [1, batch_size]
     )
 
     semi_hard_negatives = tf.where(mask_final, negatives_outside, negatives_inside)
@@ -215,12 +214,12 @@ def triplet_semihard_loss( y_true, y_pred, margin=1.0, distance_metric="L2", ):
     )
 
     if convert_to_float32:
-        return tf.cast(triplet_loss, embeddings.dtype)
-    else:
-        return triplet_loss
+        triplet_loss = tf.cast(triplet_loss, embeddings.dtype)
+
+    return triplet_loss
 
 @tf.function
-def triplet_loss( y_true, y_pred, margin=1.0, distance_metric="L2", ):
+def triplet_hard_loss( y_true, y_pred, margin=1.0, distance_metric="L2", soft=False,):
     r""" Computes the triplet loss
     """
     labels = tf.convert_to_tensor(y_true, name="labels")
@@ -252,15 +251,18 @@ def triplet_loss( y_true, y_pred, margin=1.0, distance_metric="L2", ):
     # Invert so we can select negatives only.
     adjacency_not = tf.math.logical_not(adjacency)
 
-    # negatives_outside: smallest D_an.
-    min_outside = _masked_minimum(pdist_matrix, adjacency_not)
+    # hard negatives: smallest D_an.
+    hard_negatives = _masked_minimum(pdist_matrix, adjacency_not)
 
-    # negatives_inside: largest D_ap.
-    max_inside = _masked_maximum(pdist_matrix, adjacency)
+    # hard positives: largest D_ap.
+    hard_positives = _masked_maximum(pdist_matrix, adjacency)
 
-    loss_mat = tf.math.add(margin, max_inside - min_outside)
+    if soft:
+        triplet_loss = tf.math.log1p(tf.math.exp(hard_positives - hard_negatives))
+    else:
+        triplet_loss = tf.maximum(hard_positives - hard_negatives + margin, 0.0)
 
-    return tf.math.maximum(loss_mat, 0.0)
+    return triplet_loss  # tf.reduce_mean(triplet_loss)
 
 
 if __name__ == "__main__":
@@ -283,9 +285,13 @@ if __name__ == "__main__":
     print_ndarray(f'pairwise_dist', pairwise_dist)
 
     t = triplet_semihard_loss(labels, feature, margin=1.0, distance_metric='squared-L2', )  # 'L2', 'squared-L2', 'angular'
-    print(f'\ntriplet_semihard_loss: {t:.3f}')
+    #print(f'\ntriplet_semihard_loss: {t:.3f}')
+    print_ndarray(f'\ntriplet_semihard_loss', t)
 
-    t = triplet_loss(labels, feature, margin=1.0, distance_metric='squared-L2', )  # 'L2', 'squared-L2', 'angular'
-    print_ndarray(f'\ntriplet_loss', t)
+    t = triplet_hard_loss(labels, feature, margin=1.0, distance_metric='squared-L2', )  # 'L2', 'squared-L2', 'angular'
+    print_ndarray(f'\ntriplet_hard_loss', t)
+
+    t = triplet_hard_loss(labels, feature, margin=1.0, distance_metric='squared-L2', soft=True)
+    print_ndarray(f'\ntriplet_hard_loss', t)
 
     pass
