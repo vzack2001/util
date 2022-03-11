@@ -403,8 +403,8 @@ class Profiler(object):
                                        '({:.2f} MB)'.format((self._mem[0]-self._startMem[0])/2.**20),
                                        '/ vms = {:.2f} MB'.format(self._mem[1]/2.**20),
                                        '({:.2f} MB)'.format((self._mem[1]-self._startMem[1])/2.**20), '\n')
-    def __repr__(self):
-
+    def __str__(self):
+        # https://stackoverflow.com/questions/1436703/what-is-the-difference-between-str-and-repr
         def get_time_str(seconds, ticks=False):
             time_str = 'n/a'
             if seconds < 120:
