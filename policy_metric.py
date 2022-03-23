@@ -65,7 +65,7 @@ class PolicyStat(keras.metrics.Metric):
         per_action_neg = '[' + ''.join(['{:5.1f}'.format(s) for s in per_action_neg]) + ']'
         action_sum = '[' + ''.join(['{:5.1f}'.format(s) for s in action_sum]) + ']'
         overtime = '[' + ''.join(['{:5.1f}'.format(s) for s in overtime[1:]]) + ']'
-        return f'{action_sum} {total_reward:6.1f} {per_action_pos} {per_action_neg} {overtime}'
+        return f'{action_sum} {total_reward:5.2f} {per_action_pos} {per_action_neg} {overtime}'
 
     def result(self):
         epsilon = 1e-6
