@@ -19,27 +19,18 @@ class PolicyStat(keras.metrics.Metric):
 
         pass  # __init__()
 
-    def update_state(self, y_true, log_probs, sample_weight=None):
+    def update_state(self, y_true, actions):
 
         act_rewards = y_true[:,:3]               # (?,3) ['none', 'buy', 'sell',]
         done_time = y_true[:,3:6]                # (?,3) ['done', 'buy_time_100', 'sell_time_100',]
 
-        #log_probs, values, features = model(x)  # (?,3)
-        #print_ndarray('act_rewards, log_prob', np.concatenate([act_rewards, log_probs], axis=-1), 16, frm='8.3f')
+        #log_probs = tf.math.log_softmax(tf.ones_like(act_rewards))                   # (?, 3) `random`
+        #policy_actions = tf.random.categorical(log_probs, 1, dtype=tf.int32)         # (?, 1)
+        #policy_actions = tf.math.argmax(log_probs, axis=1, output_type=tf.int32)     # (?,)
 
-        # `true` actions
-        #true_log_probs = tf.math.log_softmax(act_rewards)   # (?, 3)
-        #true_actions = tf.expand_dims(tf.math.argmax(true_log_probs, axis=1, output_type=tf.int32), axis=-1) # (?, 1)
-        #true_actions_act = tf.one_hot(true_actions[:,0], 3, dtype=tf.float32)      # (?,3)
-        #print_ndarray('act_rewards, true_log_probs', np.concatenate([act_rewards, true_actions, true_actions_act], axis=-1), 16, frm='6.0f')
+        policy_actions = tf.squeeze(actions)     # [(?, 1)|(?,)] --> (?,)
+        policy_actions_act = tf.one_hot(policy_actions, 3, dtype=tf.float32)          # (?,3)
 
-        #log_probs = tf.math.log_softmax(tf.ones_like(act_rewards))  # (?, 3)
-        #policy_actions = tf.random.categorical(log_probs, 1, dtype=tf.int32)
-        policy_actions = tf.expand_dims(tf.math.argmax(log_probs, axis=1, output_type=tf.int32), axis=-1)    # (?, 1)
-        policy_actions_act = tf.one_hot(policy_actions[:,0], 3, dtype=tf.float32)  # (?,3)
-        #print_ndarray('act_rewards, log_probs', np.concatenate([act_rewards, policy_actions, policy_actions_act], axis=-1), 16, frm='6.0f')
-
-        #  tf.math.greater(a, 0.0)
         action_pos_mask = tf.where(act_rewards > 0, 1.0, 0.0)   # (?,3)
         action_neg_mask = tf.where(act_rewards < 0, 1.0, 0.0)   # (?,3)
         overtime = tf.where(done_time * policy_actions_act > 7200, 1.0, 0.0)          # (?,3)
