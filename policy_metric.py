@@ -52,20 +52,35 @@ class PolicyStat(keras.metrics.Metric):
         pass  # update_state()
 
     def __str__(self):
-        action_sum, per_action_pos, per_action_neg, overtime = self.result().numpy()
-        per_action_pos = '[' + ''.join(['{:5.1f}'.format(s) for s in per_action_pos[1:]]) + ']'
+        r = self.result()
+        total_reward   = r['total_reward']
+        action_sum     = r['action_sum']
+        per_action_pos = r['per_action_pos']
+        per_action_neg = r['per_action_neg']
+        overtime       = r['overtime']
+
+        # value_if_true if condition else value_if_false
+        #per_action_pos = '[' + ''.join(['{:5.1f}'.format(s) for s in per_action_pos[1:]]) + ']'
+        per_action_pos = '[' + ''.join(["{:{frm}}".format(s, frm=('5.0f' if np.abs(s-100)<0.005 else '5.1f')) for s in per_action_pos[1:]]) + ']'
         per_action_neg = '[' + ''.join(['{:5.1f}'.format(s) for s in per_action_neg]) + ']'
         action_sum = '[' + ''.join(['{:5.1f}'.format(s) for s in action_sum]) + ']'
         overtime = '[' + ''.join(['{:5.1f}'.format(s) for s in overtime[1:]]) + ']'
-        return f'{action_sum} {per_action_pos} {per_action_neg} {overtime}'
+        return f'{action_sum} {total_reward:6.1f} {per_action_pos} {per_action_neg} {overtime}'
 
     def result(self):
         epsilon = 1e-6
+        total_reward = tf.reduce_sum(self.per_action_pos - self.per_action_neg)
+        total_reward = total_reward / tf.reduce_sum(self.per_action_pos + self.per_action_neg + epsilon) * 100.
         action_sum = self.action_sum / tf.reduce_sum(self.action_sum + epsilon) * 100.
         per_action_pos = self.per_action_pos/(self.action_pos + epsilon) * 100.
         per_action_neg = self.per_action_neg/(self.action_sum + epsilon) * 100.
         overtime = self.overtime/(self.action_sum + epsilon) * 100.
-        return (action_sum, per_action_pos, per_action_neg, overtime)
+        return {    'total_reward'   : total_reward,
+                    'action_sum'     : action_sum,
+                    'per_action_pos' : per_action_pos,
+                    'per_action_neg' : per_action_neg,
+                    'overtime'       : overtime
+                }
 
     def reset_state(self):
         backend.batch_set_value([(v, np.zeros(v.shape)) for v in self.variables])
