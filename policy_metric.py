@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.python.keras import backend
 
-from mylib import data_read_pandas
+from mylib import data_read_pandas, Profiler
 
 
 class MeanVarStat(keras.metrics.Metric):
