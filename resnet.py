@@ -12,7 +12,7 @@ from tensorflow import keras
 from tensorflow.keras import backend as K
 from tensorflow.python.ops import math_ops
 
-import tensorflow_addons as tfa
+import tensorflow_addons as tfa  # tfa.layers.GroupNormalization
 #import tensorflow_probability as tfp
 import functools
 

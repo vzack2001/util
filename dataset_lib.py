@@ -265,13 +265,17 @@ class dataset_numpy(object):
         idx = np.reshape(idx, -1)
         return idx
 
-    def _gen_sequences(self, idx=None, data_seq=None, target_seq=None, target_shift=None, steps=1, shuffle=False):
+    def _on_sequence_start(self, **kwarg):
+        pass
+
+    def _gen_sequences(self, idx=None, data_seq=None, target_seq=None, target_shift=None, steps=1, shuffle=False, verbose=False):
         """ return batch iterator (idx-started) data-targets sequences
         """
         data_seq, target_seq, target_shift = self.get_params(data_seq, target_seq, target_shift)
         idx = self.safe_idx(idx, data_seq, target_seq, target_shift + steps-1)
         if shuffle:
             np.random.shuffle(idx)
+        self._on_sequence_start(idx=idx, data_seq=data_seq, target_seq=target_seq, target_shift=target_shift, steps=steps, shuffle=shuffle, verbose=verbose)
         for start in idx:
             yield np.arange(start=start, stop=start + steps, dtype=idx.dtype)
         pass  # _gen_sequences()
@@ -285,7 +289,10 @@ class dataset_numpy(object):
             yield from self._gen_sequences(**kwarg)
         pass  # gen_sequences()
 
-    def _gen_batch(self, idx=None, data_seq=None, target_seq=None, target_shift=None, batch_size=1, shuffle=False):
+    def _on_batch_start(self, **kwarg):
+        pass
+
+    def _gen_batch(self, idx=None, data_seq=None, target_seq=None, target_shift=None, batch_size=1, shuffle=False, verbose=False):
         """ generate indices batches
             https://habr.com/ru/post/332074/
             https://towardsdatascience.com/how-to-use-dataset-in-tensorflow-c758ef9e4428
@@ -295,6 +302,7 @@ class dataset_numpy(object):
         if shuffle:
             np.random.shuffle(idx)
         batches = self.split_batch(batch_size=batch_size, idx=idx, data_seq=data_seq, target_seq=target_seq, target_shift=target_shift)
+        self._on_batch_start(idx=idx, data_seq=data_seq, target_seq=target_seq, target_shift=target_shift, batch_size=batch_size, shuffle=shuffle, verbose=verbose)
         for i in batches:
             yield i
         pass  # _gen_batch()
@@ -381,7 +389,7 @@ class dataset_pandas(dataset_numpy):
 if __name__ == "__main__":
 
     from mylib import Profiler, print_ndarray
-
+    '''
     with Profiler('test get_safe_idx() & sequence_from_idx()') as p:
 
         def test_safe_idx_sequence_from_idx(data, idx=None, data_seq=1, target_seq=0, target_shift=0):
@@ -405,7 +413,9 @@ if __name__ == "__main__":
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=1, target_seq=0, target_shift=0)
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=2, target_seq=0, target_shift=0)
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=2, target_seq=2, target_shift=2)
+    '''
 
+    '''
     with Profiler('test dataset_numpy') as p:
         size = 128
         data = np.arange(size, dtype=np.float32)
@@ -476,6 +486,7 @@ if __name__ == "__main__":
                 break
 
         pass
+    '''
 
     with Profiler('test dataset_pandas') as p:
         size = 12
