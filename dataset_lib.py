@@ -249,9 +249,9 @@ class dataset_numpy(object):
                 {idx=None, data_seq=None, target_seq=None, target_shift=None}
         """
         size = self.size(**kwarg)
-        split  = np.int(np.ceil(size/batch_size)), batch_size
+        split  = (np.int(np.ceil(size/batch_size)), batch_size)
         batches = self.split_idx(split=split, **kwarg)
-        return batches  # (?, batch_size * n)
+        return batches  # (?, batch_size)
 
     def get_sequences(self, idx=None, data_seq=None, target_seq=None, target_shift=None, steps=1):
         """ return idx-started data-targets sequences size of `steps`
@@ -389,7 +389,7 @@ class dataset_pandas(dataset_numpy):
 if __name__ == "__main__":
 
     from mylib import Profiler, print_ndarray
-    '''
+
     with Profiler('test get_safe_idx() & sequence_from_idx()') as p:
 
         def test_safe_idx_sequence_from_idx(data, idx=None, data_seq=1, target_seq=0, target_shift=0):
@@ -413,9 +413,7 @@ if __name__ == "__main__":
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=1, target_seq=0, target_shift=0)
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=2, target_seq=0, target_shift=0)
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=2, target_seq=2, target_shift=2)
-    '''
 
-    '''
     with Profiler('test dataset_numpy') as p:
         size = 128
         data = np.arange(size, dtype=np.float32)
@@ -462,7 +460,7 @@ if __name__ == "__main__":
 
         for i in range(1, 6):
             idx = ds_test.get_sequences(safe_idx, steps=i)
-            print_ndarray(f'9/{i} idx = ds_test.get_sequences({safe_idx}, steps={i})', idx, 32, frm='3.0f')
+            print_ndarray(f'9/{i} idx = ds_test.get_sequences(safe_idx, steps={i})', idx, 32, frm='3.0f')
 
         for i in range(1, 6):
             batch_it = ds_test._gen_sequences(steps=i, shuffle=True)
@@ -486,7 +484,6 @@ if __name__ == "__main__":
                 break
 
         pass
-    '''
 
     with Profiler('test dataset_pandas') as p:
         size = 12
