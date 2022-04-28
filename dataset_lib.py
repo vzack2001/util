@@ -13,6 +13,9 @@ def get_safe_idx(a: np.ndarray, idx=None, data_seq=0, target_seq=0, target_shift
     if idx is None:
         idx = np.arange(n, dtype=dtype)
 
+    if len(np.shape(idx)) == 0:
+        idx = [idx]
+
     if isinstance(idx[0], bool):
         idx = np.arange(n, dtype=dtype)[idx]
 
