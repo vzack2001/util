@@ -486,7 +486,7 @@ def _data_format_string(a):
     return format_string
 
 
-def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
+def print_ndarray(name, a, count=12, frm=None, stats=True, with_end=True, p1=10, p99=90):
     #print('print_ndarray -----------------------------------------------------------------------')
     #print('name: {}\ntype(a): {}\nnp.shape(a): {}\ncount: {}\nfrm: {}\nwith_end: {}'.format(name, type(a), np.shape(a), count, frm, with_end))
     #print('np.shape(a): {}\n'.format(np.shape(a)))
@@ -538,10 +538,27 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
 
     def get_stat_str(a):
         # print array stats
-        s =  ' ({:{frm}}/{:{frm}}'.format(np.mean(a), np.mean(np.abs(a)), frm=re.sub('.*\.', '.', _data_format_string(np.mean(np.abs(a)))))
-        s += ', {:{frm}}/{:{frm}}'.format(np.std(a), np.std(np.abs(a)),   frm=re.sub('.*\.', '.', _data_format_string(np.std(a))))
-        s += ', [{:{frm}}/{:{frm}}]'.format(np.min(a), np.max(a),         frm=re.sub('.*\.', '.', frm))
-        s += ' p{}/{}={:{frm}}/{:{frm}})'.format(p1, p99, np.percentile(a, p1), np.percentile(a, p99), frm=re.sub('.*\.', '.', frm))
+        mean = np.mean(a)
+        amean = np.mean(np.abs(a))
+        frmt = _data_format_string(amean)
+        frmt = re.sub('.*\.', '.', frmt)
+        s =  f' ({mean:{frmt}}/{amean:{frmt}}'
+
+        std = np.std(a)
+        astd = np.std(np.abs(a))
+        frmt = _data_format_string(std)
+        frmt = re.sub('.*\.', '.', frmt)
+        s += f', {std:{frmt}}/{astd:{frmt}}'
+
+        frmt = re.sub('.*\.', '.', frm)
+        s += f', [{np.min(a):{frmt}}/{np.max(a):{frmt}}]'
+
+        percentile1 = np.percentile(a, p1)
+        percentile99 = np.percentile(a, p99)
+        frm1 = re.sub('.*\.', '.', _data_format_string(percentile1))
+        frm99 = re.sub('.*\.', '.', _data_format_string(percentile99))
+        s += f' p{p1}/{p99}={percentile1:{frm1}}/{percentile99:{frm99}})'
+
         return s
 
     def get_body_str(a):
@@ -613,7 +630,7 @@ def print_ndarray(name, a, count=12, frm=None, with_end=True, p1=10, p99=90):
 
     if len(header_str) > 0:
         print(header_str)
-        if not a_is_empty:
+        if not a_is_empty and stats:
             stat_str = get_stat_str(a)
             print(stat_str)
         print('----')
