@@ -24,10 +24,12 @@ def get_safe_idx(a: np.ndarray, idx=None, data_seq=0, target_seq=0, target_shift
     # check data_seq validity
     idx = idx[idx < n]
     idx = idx[idx - (data_seq - 1) >= 0]
+    idx = idx[idx >= 0]
 
     # check target_seq validity
     idx = idx[(idx + (target_seq - 1) + target_shift) < n]
     idx = idx[(idx + target_shift) >= 0]
+    idx = idx[(idx + target_shift) < n]
 
     #import traceback
     #_stack = traceback.format_stack()
@@ -35,24 +37,24 @@ def get_safe_idx(a: np.ndarray, idx=None, data_seq=0, target_seq=0, target_shift
     #print('\n')
     return idx
 
-def sequence_from_idx(data: np.ndarray, targets: np.ndarray, idx, data_seq=0, target_seq=0, target_shift=0, dtype=np.float32):
+def sequence_from_idx(data: np.ndarray, targets: np.ndarray, idx, data_seq=0, target_seq=0, target_shift=0, dtype=None):
     """ get x, y (data, targets) data sequence for input indices
             as tuple of numpy ndarrays:
                 x = data[idx-data_seq:idx]
                 y = targets[idx]
     """
-    x = []
-    y = []
-    for i in idx:
-        if data_seq > 0:
-            x.append(data[i - (data_seq - 1) : i + 1])
-        else:
-            x.append(data[i])
+    if dtype is None:
+        dtype = data.dtype
 
-        if target_seq > 0:
-            y.append(targets[i + target_shift : i + target_seq + target_shift])
-        else:
-            y.append(targets[i + target_shift])
+    if data_seq > 0:
+        x = [data[i - (data_seq - 1) : i + 1] for i in idx]
+    else:
+        x = [data[i] for i in idx]
+
+    if target_seq > 0:
+        y = [targets[i + target_shift : i + target_seq + target_shift] for i in idx]
+    else:
+        y = [targets[i + target_shift] for i in idx]
 
     return np.array(x, dtype=dtype), np.array(y, dtype=dtype) # x, y
 
@@ -416,7 +418,7 @@ if __name__ == "__main__":
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=1, target_seq=0, target_shift=0)
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=2, target_seq=0, target_shift=0)
         test_safe_idx_sequence_from_idx(data, idx=None, data_seq=2, target_seq=2, target_shift=2)
-
+    assert 0
     with Profiler('test dataset_numpy') as p:
         size = 128
         data = np.arange(size, dtype=np.float32)
