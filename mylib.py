@@ -486,7 +486,7 @@ def _data_format_string(a):
     return format_string
 
 
-def print_ndarray(name, a, count=12, frm=None, stats=True, with_end=True, p1=10, p99=90):
+def print_ndarray(name, a, count=12, frm=None, stats=False, with_end=True, p1=10, p99=90):
     #print('print_ndarray -----------------------------------------------------------------------')
     #print('name: {}\ntype(a): {}\nnp.shape(a): {}\ncount: {}\nfrm: {}\nwith_end: {}'.format(name, type(a), np.shape(a), count, frm, with_end))
     #print('np.shape(a): {}\n'.format(np.shape(a)))
